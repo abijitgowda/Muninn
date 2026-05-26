@@ -39,7 +39,9 @@ def run_init(install_launchd: bool, console: Console) -> None:
         _embed_names = {"mxbai-embed", "nomic-embed", "all-minilm", "snowflake-arctic-embed", "embed"}
         chat_models = [m for m in models if not any(e in m.lower() for e in _embed_names)]
         console.print(f"\n  Available models: {', '.join(chat_models[:10])}")
-        default_model = "gemma4:e4b" if "gemma4:e4b" in chat_models else (chat_models[0] if chat_models else "gemma4:e4b")
+        default_model = (
+            "gemma4:e4b" if "gemma4:e4b" in chat_models else (chat_models[0] if chat_models else "gemma4:e4b")
+        )
         ingest_model = typer.prompt("Ingest model", default=default_model)
         query_model = typer.prompt("Query model", default=ingest_model)
     else:
