@@ -118,7 +118,12 @@ def ingest(
     verbose: bool = typer.Option(False, "-v", "--verbose"),
 ) -> None:
     """Run the ingest pipeline."""
+    import logging
+
     from .ops.ingest import run_ingest
+
+    if verbose:
+        logging.getLogger("muninn").setLevel(logging.INFO)
 
     if not source and not all_sources and not reprocess:
         console.print("[yellow]Specify --all, --source NAME, or --reprocess ID[/yellow]")

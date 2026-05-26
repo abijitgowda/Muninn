@@ -262,7 +262,7 @@ def _write_wiki_yaml(
             "llm_model_ingest": ingest_model,
             "llm_model_query": query_model,
             "llm_timeout": 900,
-            "log_level": "INFO",
+            "log_level": "WARNING",
             "num_ctx_ingest": 32768,
             "num_ctx_query": 32768,
             "max_body_ingest": 48000,
