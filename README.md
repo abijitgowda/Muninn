@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="docs/Muninn.jpeg" alt="Muninn" width="480"/>
+  <img src="docs/Muninn.png" alt="Muninn" width="480"/>
 </p>
 
 <p align="center"><strong>Your local memory. Private by design.</strong></p>
