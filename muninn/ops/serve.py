@@ -361,8 +361,6 @@ def build_app() -> Any:
             # Emit citations first as a hidden chunk inside content (clients ignore tags they don't parse).
             for chunk in chunks:
                 yield _sse_chunk(chunk, req.model)
-            tail = "\n\n---\n_Cited: " + ", ".join(f"[[{c}]]" for c in cited) + "_"
-            yield _sse_chunk(tail, req.model)
             yield _sse_chunk(None, req.model, finish="stop")
             yield b"data: [DONE]\n\n"
 

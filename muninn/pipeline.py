@@ -289,7 +289,7 @@ class Pipeline:
         self.ollama = Ollama(
             host=config.settings.ollama_host,
             model=config.settings.model_for_ingest,
-            timeout=config.settings.ollama_timeout,
+            timeout=config.settings.llm_timeout,
         )
         self._vectorstore = None
 

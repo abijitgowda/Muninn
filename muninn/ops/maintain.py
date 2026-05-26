@@ -39,7 +39,7 @@ def run_maintain(
     llm = Ollama(
         host=config.settings.ollama_host,
         model=config.settings.model_for_ingest,
-        timeout=config.settings.ollama_timeout,
+        timeout=config.settings.llm_timeout,
     )
     merged = _dedup_pass(pages, vault, llm, dry_run=dry_run, console=console)
     superseded = _supersession_pass(pages, vault, dry_run=dry_run, console=console)

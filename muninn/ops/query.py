@@ -129,7 +129,7 @@ def answer_query(
     with Ollama(
         host=config.settings.ollama_host,
         model=config.settings.model_for_query,
-        timeout=config.settings.ollama_timeout,
+        timeout=config.settings.llm_timeout,
     ) as ollama:
         ctx = QueryContext(config=config, vault=vault, ollama=ollama, prompts=prompts, manifest=manifest)
         if not ctx.ollama.ping():
@@ -236,7 +236,7 @@ def stream_query(
     ollama = Ollama(
         host=config.settings.ollama_host,
         model=config.settings.model_for_query,
-        timeout=config.settings.ollama_timeout,
+        timeout=config.settings.llm_timeout,
     )
     if not ollama.ping():
         ollama.close()
@@ -346,7 +346,7 @@ def run_query(
         with Ollama(
             host=config.settings.ollama_host,
             model=config.settings.model_for_query,
-            timeout=config.settings.ollama_timeout,
+            timeout=config.settings.llm_timeout,
         ) as ollama:
             ctx = QueryContext(config=config, vault=vault, ollama=ollama, prompts=prompts, manifest=manifest)
             idx_text = (

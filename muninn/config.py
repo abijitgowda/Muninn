@@ -66,11 +66,18 @@ class Settings(BaseModel):
     """
 
     vault_path: Path
+    # LLM provider: ollama (default), openai, anthropic, openrouter, custom
+    llm_provider: str = "ollama"
+    llm_provider_ingest: str | None = None
+    llm_provider_query: str | None = None
+    llm_base_url: str | None = None
+    # Model names — provider-agnostic
+    llm_model: str = "gemma4:e4b"
+    llm_model_ingest: str | None = None
+    llm_model_query: str | None = None
+    llm_timeout: float = 300.0
+    # Ollama-specific
     ollama_host: str = "http://localhost:11434"
-    ollama_model: str = "gemma4:e4b"
-    ollama_model_ingest: str | None = None
-    ollama_model_query: str | None = None
-    ollama_timeout: float = 300.0
     # Context window and body limits — tune for your hardware/model
     num_ctx_ingest: int = 8192  # context window for ingest LLM calls
     num_ctx_query: int = 8192  # context window for query LLM calls
@@ -89,11 +96,35 @@ class Settings(BaseModel):
 
     @property
     def model_for_ingest(self) -> str:
-        return self.ollama_model_ingest or self.ollama_model
+        return self.llm_model_ingest or self.llm_model
 
     @property
     def model_for_query(self) -> str:
-        return self.ollama_model_query or self.ollama_model
+        return self.llm_model_query or self.llm_model
+
+    @property
+    def provider_for_ingest(self) -> str:
+        return self.llm_provider_ingest or self.llm_provider
+
+    @property
+    def provider_for_query(self) -> str:
+        return self.llm_provider_query or self.llm_provider
+
+    def create_llm(self, operation: str = "query") -> "LLMProvider":
+        """Create an LLM provider for the given operation (ingest or query)."""
+        from muninn.llm import create_provider
+
+        if operation == "ingest":
+            provider, model = self.provider_for_ingest, self.model_for_ingest
+        else:
+            provider, model = self.provider_for_query, self.model_for_query
+        return create_provider(
+            provider=provider,
+            model=model,
+            host=self.ollama_host,
+            timeout=self.llm_timeout,
+            base_url=self.llm_base_url,
+        )
 
     @property
     def state_dir(self) -> Path:
@@ -154,11 +185,15 @@ def load_config(
 
     settings = Settings(
         vault_path=vault,
+        llm_provider=raw_settings.get("llm_provider", "ollama"),
+        llm_provider_ingest=raw_settings.get("llm_provider_ingest"),
+        llm_provider_query=raw_settings.get("llm_provider_query"),
+        llm_base_url=raw_settings.get("llm_base_url"),
+        llm_model=raw_settings.get("llm_model") or raw_settings.get("ollama_model", "gemma4:e4b"),
+        llm_model_ingest=raw_settings.get("llm_model_ingest") or raw_settings.get("ollama_model_ingest"),
+        llm_model_query=raw_settings.get("llm_model_query") or raw_settings.get("ollama_model_query"),
+        llm_timeout=float(raw_settings.get("llm_timeout") or raw_settings.get("ollama_timeout", 300)),
         ollama_host=raw_settings.get("ollama_host", "http://localhost:11434"),
-        ollama_model=raw_settings.get("ollama_model", "gemma4:e4b"),
-        ollama_model_ingest=raw_settings.get("ollama_model_ingest"),
-        ollama_model_query=raw_settings.get("ollama_model_query"),
-        ollama_timeout=float(raw_settings.get("ollama_timeout", 300)),
         num_ctx_ingest=int(raw_settings.get("num_ctx_ingest", 8192)),
         num_ctx_query=int(raw_settings.get("num_ctx_query", 8192)),
         max_body_ingest=int(raw_settings.get("max_body_ingest", 24000)),

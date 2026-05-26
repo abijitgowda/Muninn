@@ -5,11 +5,22 @@
 
 settings:
   vault_path: ./Muninn-Vault              # path to your Obsidian vault
-  ollama_host: http://localhost:11434     # Ollama API endpoint
-  ollama_model: gemma4:e4b                 # default model (fallback if per-op models not set)
-  ollama_model_ingest: gemma4:e4b          # model for JSON extraction during ingest
-  ollama_model_query: gemma4:e4b           # model for query synthesis and serve
-  ollama_timeout: 900                    # seconds before LLM call times out
+
+  # LLM provider: ollama (default), openai, anthropic, openrouter, custom
+  # Mix providers per operation: local for ingest, cloud for query
+  llm_provider: ollama
+  # llm_provider_ingest: ollama           # override for ingest only
+  # llm_provider_query: anthropic         # override for query only
+  # llm_base_url:                         # custom OpenAI-compatible endpoint
+
+  # Model names — works with any provider
+  llm_model: gemma4:e4b                   # default model
+  llm_model_ingest: gemma4:e4b            # model for JSON extraction during ingest
+  llm_model_query: gemma4:e4b             # model for query synthesis and serve
+  llm_timeout: 900                        # seconds before LLM call times out
+
+  # Ollama-specific (only needed when provider is ollama)
+  ollama_host: http://localhost:11434
   log_level: INFO                        # DEBUG | INFO | WARNING | ERROR
 
   # Context window — how many tokens the model processes per call.
