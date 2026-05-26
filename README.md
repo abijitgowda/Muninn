@@ -83,9 +83,6 @@ For manual work: `muninn/sources/` for connectors, `wiki.yaml` for configuration
 - macOS or Linux (Docker supported)
 - [Obsidian](https://obsidian.md) (optional — the wiki is plain markdown)
 
-## Architecture
-
-![Architecture](docs/architecture.svg)
 
 ```
 Vault/
