@@ -1,0 +1,98 @@
+{
+  "main": {
+    "id": "main",
+    "type": "split",
+    "children": [
+      {
+        "id": "tabs",
+        "type": "tabs",
+        "children": [
+          {
+            "id": "welcome",
+            "type": "leaf",
+            "state": {
+              "type": "markdown",
+              "state": {
+                "file": "Welcome.md",
+                "mode": "preview",
+                "source": false
+              }
+            }
+          }
+        ]
+      }
+    ],
+    "direction": "vertical"
+  },
+  "left": {
+    "id": "left",
+    "type": "split",
+    "children": [
+      {
+        "id": "left-tabs",
+        "type": "tabs",
+        "children": [
+          {
+            "id": "file-explorer",
+            "type": "leaf",
+            "state": {
+              "type": "file-explorer",
+              "state": { "sortOrder": "alphabetical" }
+            }
+          },
+          {
+            "id": "search",
+            "type": "leaf",
+            "state": {
+              "type": "search",
+              "state": { "query": "" }
+            }
+          }
+        ]
+      }
+    ],
+    "direction": "horizontal",
+    "width": 300
+  },
+  "right": {
+    "id": "right",
+    "type": "split",
+    "children": [
+      {
+        "id": "right-tabs",
+        "type": "tabs",
+        "children": [
+          {
+            "id": "copilot",
+            "type": "leaf",
+            "state": {
+              "type": "copilot-chat-view",
+              "state": {}
+            }
+          },
+          {
+            "id": "backlink",
+            "type": "leaf",
+            "state": {
+              "type": "backlink",
+              "state": { "file": "Welcome.md" }
+            }
+          },
+          {
+            "id": "outline",
+            "type": "leaf",
+            "state": {
+              "type": "outline",
+              "state": { "file": "Welcome.md" }
+            }
+          }
+        ],
+        "currentTab": 0
+      }
+    ],
+    "direction": "horizontal",
+    "width": 400
+  },
+  "active": "welcome",
+  "lastOpenFiles": []
+}

@@ -1,0 +1,13 @@
+services:
+  muninn:
+    build: .
+    ports:
+      - "19828:19828"
+    volumes:
+      - ./my-vault:/vault
+    environment:
+      - OLLAMA_HOST=http://host.docker.internal:11434
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    # Serves on :19828 with cron scheduler for ingest/consolidate/maintain.
+    # One-off commands: docker compose run muninn ingest --all

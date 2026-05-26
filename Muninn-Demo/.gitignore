@@ -1,0 +1,13 @@
+# Obsidian (regenerated on open — never track)
+.obsidian/
+
+# Copilot personal data
+.copilot/conversations/
+.copilot/memory/
+.copilot/projects/
+
+# Muninn logs
+.logs/
+
+# OS
+.DS_Store

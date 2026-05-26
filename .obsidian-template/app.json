@@ -1,0 +1,16 @@
+{
+  "alwaysUpdateLinks": true,
+  "newLinkFormat": "shortest",
+  "useMarkdownLinks": false,
+  "attachmentFolderPath": "Raw/Files",
+  "showFrontmatter": true,
+  "showLineNumber": true,
+  "spellcheck": true,
+  "defaultViewMode": "preview",
+  "userIgnoreFilters": [
+    "Raw/Sources/",
+    ".muninn/",
+    ".copilot/"
+  ],
+  "promptDelete": false
+}

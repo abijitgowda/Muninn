@@ -1,0 +1,131 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 940 520" font-family="'Inter', -apple-system, system-ui, sans-serif">
+  <defs>
+    <filter id="s" x="-4%" y="-4%" width="108%" height="108%"><feDropShadow dx="0" dy="1" stdDeviation="3" flood-color="#000" flood-opacity="0.35"/></filter>
+  </defs>
+
+  <rect width="940" height="520" rx="16" fill="#111116"/>
+
+  <!-- ========== SOURCES ========== -->
+  <text x="124" y="34" text-anchor="middle" fill="#868e96" font-size="11" font-weight="600" letter-spacing="1.5">SOURCES</text>
+
+  <rect x="32" y="50" width="184" height="36" rx="8" fill="#1a1d2e" filter="url(#s)"/>
+  <text x="124" y="73" text-anchor="middle" fill="#748ffc" font-size="12" font-weight="500">Browser History</text>
+
+  <rect x="32" y="94" width="184" height="36" rx="8" fill="#1a1d2e" filter="url(#s)"/>
+  <text x="124" y="117" text-anchor="middle" fill="#748ffc" font-size="12" font-weight="500">X / Twitter</text>
+
+  <rect x="32" y="138" width="184" height="36" rx="8" fill="#1a1d2e" filter="url(#s)"/>
+  <text x="124" y="161" text-anchor="middle" fill="#748ffc" font-size="12" font-weight="500">Git Projects</text>
+
+  <rect x="32" y="182" width="184" height="36" rx="8" fill="#1a1d2e" filter="url(#s)"/>
+  <text x="124" y="205" text-anchor="middle" fill="#748ffc" font-size="12" font-weight="500">YouTube</text>
+
+  <rect x="32" y="226" width="184" height="36" rx="8" fill="#1a1d2e" filter="url(#s)"/>
+  <text x="124" y="249" text-anchor="middle" fill="#748ffc" font-size="12" font-weight="500">Claude History</text>
+
+  <rect x="32" y="270" width="184" height="36" rx="8" fill="#1a1d2e" filter="url(#s)"/>
+  <text x="124" y="293" text-anchor="middle" fill="#748ffc" font-size="12" font-weight="500">Inbox / URL</text>
+
+  <text x="124" y="336" text-anchor="middle" fill="#495057" font-size="11" font-style="italic">+ extend with your own</text>
+
+  <!-- ========== FLOW ARROW: Sources → LLM ========== -->
+  <path d="M224,200 L280,200" fill="none" stroke="#4c6ef5" stroke-width="2" opacity="0.5"/>
+  <polygon points="278,194 290,200 278,206" fill="#4c6ef5" opacity="0.5"/>
+
+  <!-- ========== LLM PIPELINE ========== -->
+  <text x="440" y="34" text-anchor="middle" fill="#868e96" font-size="11" font-weight="600" letter-spacing="1.5">LOCAL LLM (OLLAMA)</text>
+
+  <rect x="300" y="62" width="280" height="96" rx="12" fill="#1c1a2e" filter="url(#s)"/>
+  <text x="440" y="94" text-anchor="middle" fill="#9775fa" font-size="14" font-weight="600">JSON Extraction</text>
+  <text x="440" y="114" text-anchor="middle" fill="#5c5f66" font-size="11">1 LLM call per source item</text>
+  <text x="440" y="132" text-anchor="middle" fill="#5c5f66" font-size="11">schema-guided · provenance-tagged</text>
+
+  <!-- Down arrow -->
+  <line x1="440" y1="162" x2="440" y2="186" stroke="#5c5f66" stroke-width="1.5"/>
+  <polygon points="434,184 440,194 446,184" fill="#5c5f66"/>
+
+  <rect x="300" y="200" width="280" height="80" rx="12" fill="#1c1a2e" filter="url(#s)"/>
+  <text x="440" y="232" text-anchor="middle" fill="#9775fa" font-size="14" font-weight="600">Upsert + Cross-link</text>
+  <text x="440" y="252" text-anchor="middle" fill="#5c5f66" font-size="11">deterministic merge · no LLM</text>
+  <text x="440" y="270" text-anchor="middle" fill="#5c5f66" font-size="11">[[wikilinks]] · vectorstore sync</text>
+
+  <text x="440" y="310" text-anchor="middle" fill="#3b3d44" font-size="10">Raw → LLM → Wiki · one direction only</text>
+
+  <!-- ========== FLOW ARROW: LLM → Vault ========== -->
+  <path d="M588,200 L640,200" fill="none" stroke="#37b24d" stroke-width="2" opacity="0.5"/>
+  <polygon points="638,194 650,200 638,206" fill="#37b24d" opacity="0.5"/>
+
+  <!-- ========== VAULT ========== -->
+  <text x="730" y="34" text-anchor="middle" fill="#868e96" font-size="11" font-weight="600" letter-spacing="1.5">OBSIDIAN VAULT</text>
+
+  <rect x="656" y="50" width="148" height="36" rx="8" fill="#172b1a" filter="url(#s)"/>
+  <text x="730" y="73" text-anchor="middle" fill="#69db7c" font-size="12" font-weight="500">Wiki/Concepts/</text>
+
+  <rect x="656" y="94" width="148" height="36" rx="8" fill="#172b1a" filter="url(#s)"/>
+  <text x="730" y="117" text-anchor="middle" fill="#69db7c" font-size="12" font-weight="500">Wiki/Entities/</text>
+
+  <rect x="656" y="138" width="148" height="36" rx="8" fill="#172b1a" filter="url(#s)"/>
+  <text x="730" y="161" text-anchor="middle" fill="#69db7c" font-size="12" font-weight="500">Wiki/Topics/</text>
+
+  <rect x="656" y="182" width="148" height="36" rx="8" fill="#172b1a" filter="url(#s)"/>
+  <text x="730" y="205" text-anchor="middle" fill="#69db7c" font-size="12" font-weight="500">Wiki/Projects/</text>
+
+  <rect x="656" y="226" width="148" height="36" rx="8" fill="#172b1a" filter="url(#s)"/>
+  <text x="730" y="249" text-anchor="middle" fill="#69db7c" font-size="12" font-weight="500">Wiki/Sources/</text>
+
+  <rect x="656" y="270" width="148" height="36" rx="8" fill="#172b1a" filter="url(#s)"/>
+  <text x="730" y="293" text-anchor="middle" fill="#69db7c" font-size="12" font-weight="500">index.md</text>
+
+  <rect x="656" y="314" width="148" height="36" rx="8" fill="#172b1a" filter="url(#s)"/>
+  <text x="730" y="337" text-anchor="middle" fill="#69db7c" font-size="12" font-weight="500">overview.md</text>
+
+  <!-- ========== STATE ========== -->
+  <text x="876" y="34" text-anchor="middle" fill="#868e96" font-size="11" font-weight="600" letter-spacing="1.5">STATE</text>
+
+  <rect x="836" y="50" width="80" height="68" rx="8" fill="#181c20" filter="url(#s)"/>
+  <text x="876" y="76" text-anchor="middle" fill="#74c0fc" font-size="11" font-weight="600">ChromaDB</text>
+  <text x="876" y="96" text-anchor="middle" fill="#495057" font-size="9">vectors · 1024d</text>
+
+  <rect x="836" y="130" width="80" height="68" rx="8" fill="#181c20" filter="url(#s)"/>
+  <text x="876" y="156" text-anchor="middle" fill="#74c0fc" font-size="11" font-weight="600">Manifest</text>
+  <text x="876" y="176" text-anchor="middle" fill="#495057" font-size="9">SQLite WAL</text>
+
+  <rect x="836" y="210" width="80" height="68" rx="8" fill="#181c20" filter="url(#s)"/>
+  <text x="876" y="236" text-anchor="middle" fill="#74c0fc" font-size="11" font-weight="600">Relations</text>
+  <text x="876" y="256" text-anchor="middle" fill="#495057" font-size="9">graph edges</text>
+
+  <!-- Vault → State dashed -->
+  <line x1="808" y1="164" x2="832" y2="164" stroke="#2c2e33" stroke-width="1" stroke-dasharray="4,3"/>
+
+  <!-- ========== BRAIN CYCLES ========== -->
+  <line x1="32" y1="400" x2="908" y2="400" stroke="#1e1e24" stroke-width="1"/>
+  <text x="470" y="428" text-anchor="middle" fill="#868e96" font-size="11" font-weight="600" letter-spacing="1.5">MEMORY CYCLES</text>
+
+  <rect x="32" y="446" width="194" height="56" rx="10" fill="#2a2416" filter="url(#s)"/>
+  <text x="129" y="470" text-anchor="middle" fill="#fcc419" font-size="13" font-weight="600">Consolidate</text>
+  <text x="129" y="488" text-anchor="middle" fill="#5c5540" font-size="10">nightly · LLM rewrite</text>
+
+  <polygon points="234,472 244,476 234,480" fill="#5c5540"/>
+
+  <rect x="252" y="446" width="194" height="56" rx="10" fill="#2a2416" filter="url(#s)"/>
+  <text x="349" y="470" text-anchor="middle" fill="#fcc419" font-size="13" font-weight="600">Maintain</text>
+  <text x="349" y="488" text-anchor="middle" fill="#5c5540" font-size="10">weekly · decay + dedup</text>
+
+  <polygon points="454,472 464,476 454,480" fill="#5c5540"/>
+
+  <rect x="472" y="446" width="194" height="56" rx="10" fill="#2a2416" filter="url(#s)"/>
+  <text x="569" y="470" text-anchor="middle" fill="#fcc419" font-size="13" font-weight="600">Plasticity</text>
+  <text x="569" y="488" text-anchor="middle" fill="#5c5540" font-size="10">split · cluster · reparent</text>
+
+  <polygon points="674,472 684,476 674,480" fill="#5c5540"/>
+
+  <rect x="692" y="446" width="194" height="56" rx="10" fill="#2a2416" filter="url(#s)"/>
+  <text x="789" y="470" text-anchor="middle" fill="#fcc419" font-size="13" font-weight="600">Retrieval</text>
+  <text x="789" y="488" text-anchor="middle" fill="#5c5540" font-size="10">adaptive · spreading activation</text>
+
+  <!-- Feedback arrow -->
+  <path d="M730,442 L730,374" fill="none" stroke="#5c5540" stroke-width="1" stroke-dasharray="4,3"/>
+  <polygon points="726,376 730,366 734,376" fill="#5c5540"/>
+  <text x="742" y="398" fill="#495057" font-size="9">sync</text>
+
+</svg>
