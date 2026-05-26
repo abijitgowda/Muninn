@@ -166,8 +166,8 @@ def _is_garbage_body(body: str, frontmatter: dict | None = None, *, source_type:
     """Layered content quality detection.
 
     Layers 1, 3-6 target web-fetched content (nav menus, login pages, boilerplate).
-    Local file sources (folder, inbox) skip those layers — only truly empty/broken
-    bodies are rejected.
+    Local file sources (folder, inbox, claude-history) skip those layers — only
+    truly empty/broken bodies are rejected.
     """
     is_local = source_type in _LOCAL_SOURCE_TYPES
 
