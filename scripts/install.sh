@@ -65,11 +65,20 @@ fi
 # ---- Make runner scripts executable ----
 chmod +x "$SCRIPT_DIR"/run_*.sh 2>/dev/null || true
 
+# ---- Symlink muninn to PATH ----
+LINK_TARGET="/usr/local/bin/muninn"
+if [[ ! -L "$LINK_TARGET" ]] || [[ "$(readlink "$LINK_TARGET")" != "$VENV/bin/muninn" ]]; then
+  if ln -sf "$VENV/bin/muninn" "$LINK_TARGET" 2>/dev/null; then
+    echo "==> Linked muninn → $LINK_TARGET"
+  elif sudo ln -sf "$VENV/bin/muninn" "$LINK_TARGET" 2>/dev/null; then
+    echo "==> Linked muninn → $LINK_TARGET (sudo)"
+  else
+    echo "==> Could not link to $LINK_TARGET — use: source .venv/bin/activate"
+  fi
+fi
+
 echo ""
 echo "Done. Next steps:"
-echo ""
-echo "  # Activate the venv (or use .venv/bin/muninn directly)"
-echo "  source .venv/bin/activate"
 echo ""
 echo "  # Pull an LLM"
 echo "  ollama pull gemma4:e4b"

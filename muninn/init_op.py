@@ -91,7 +91,7 @@ def run_init(install_launchd: bool, console: Console) -> None:
     # Inbox is built-in — vault/Inbox/ is always watched, no config needed
 
     # ---- Write configs ----
-    _write_wiki_yaml(vault_name, ingest_model, query_model, sources, console)
+    _write_wiki_yaml(vault_path, ingest_model, query_model, sources, console)
 
     # ---- Log directory ----
     (Path.home() / "Library" / "Logs" / "Muninn").mkdir(parents=True, exist_ok=True)
@@ -250,13 +250,13 @@ def _store_secret(key: str, value: str, console: Console) -> None:
 
 
 def _write_wiki_yaml(
-    vault_name: str, ingest_model: str, query_model: str, sources: list[dict], console: Console
+    vault_path: Path, ingest_model: str, query_model: str, sources: list[dict], console: Console
 ) -> None:
     import yaml
 
     config = {
         "settings": {
-            "vault_path": f"./{vault_name}",
+            "vault_path": str(vault_path),
             "ollama_host": "http://localhost:11434",
             "llm_model": ingest_model,
             "llm_model_ingest": ingest_model,

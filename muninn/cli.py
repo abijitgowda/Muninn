@@ -69,6 +69,12 @@ def setup_obsidian(
 
     if vault:
         target = Path(vault).expanduser().resolve()
+        if not target.exists():
+            # Try as configured vault path from wiki.yaml
+            try:
+                target = load_config().settings.vault_path
+            except FileNotFoundError:
+                pass
     else:
         try:
             target = load_config().settings.vault_path
