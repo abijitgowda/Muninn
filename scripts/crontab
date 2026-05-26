@@ -1,0 +1,6 @@
+# Muninn scheduled tasks (used inside Docker container)
+# Edit schedule as needed. Logs go to stdout (visible via `docker logs`).
+
+0 * * * *    muninn ingest --all >> /proc/1/fd/1 2>&1
+0 2 * * *    muninn consolidate >> /proc/1/fd/1 2>&1
+0 3 * * 0    muninn maintain >> /proc/1/fd/1 2>&1

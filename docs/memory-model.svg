@@ -1,0 +1,101 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 960 310" font-family="'Inter', -apple-system, system-ui, sans-serif">
+  <defs>
+    <filter id="s" x="-4%" y="-4%" width="108%" height="108%"><feDropShadow dx="0" dy="1" stdDeviation="2" flood-color="#000" flood-opacity="0.3"/></filter>
+  </defs>
+
+  <rect width="960" height="310" rx="12" fill="#111116"/>
+
+  <text x="480" y="30" text-anchor="middle" fill="#868e96" font-size="11" font-weight="600" letter-spacing="1.5">MEMORY MODEL</text>
+
+  <!-- 1 -->
+  <rect x="16" y="52" width="118" height="44" rx="8" fill="#2e1c22" filter="url(#s)"/>
+  <text x="75" y="72" text-anchor="middle" fill="#e599a8" font-size="11" font-weight="500">Sensory</text>
+  <text x="75" y="86" text-anchor="middle" fill="#6e4450" font-size="9">buffer → discard</text>
+  <line x1="75" y1="100" x2="75" y2="142" stroke="#343a40" stroke-width="1.5"/>
+  <polygon points="71,140 75,150 79,140" fill="#343a40"/>
+  <rect x="16" y="150" width="118" height="44" rx="8" fill="#162030" filter="url(#s)"/>
+  <text x="75" y="170" text-anchor="middle" fill="#74c0fc" font-size="11" font-weight="500">Garbage Filter</text>
+  <text x="75" y="184" text-anchor="middle" fill="#3a5570" font-size="9">6-layer detection</text>
+
+  <!-- 2 -->
+  <rect x="150" y="52" width="118" height="44" rx="8" fill="#2e1c22" filter="url(#s)"/>
+  <text x="209" y="72" text-anchor="middle" fill="#e599a8" font-size="11" font-weight="500">Hippocampus</text>
+  <text x="209" y="86" text-anchor="middle" fill="#6e4450" font-size="9">episodic encoding</text>
+  <line x1="209" y1="100" x2="209" y2="142" stroke="#343a40" stroke-width="1.5"/>
+  <polygon points="205,140 209,150 213,140" fill="#343a40"/>
+  <rect x="150" y="150" width="118" height="44" rx="8" fill="#162030" filter="url(#s)"/>
+  <text x="209" y="170" text-anchor="middle" fill="#74c0fc" font-size="11" font-weight="500">Raw → Wiki</text>
+  <text x="209" y="184" text-anchor="middle" fill="#3a5570" font-size="9">ingest pipeline</text>
+
+  <!-- 3 -->
+  <rect x="284" y="52" width="118" height="44" rx="8" fill="#2e1c22" filter="url(#s)"/>
+  <text x="343" y="72" text-anchor="middle" fill="#e599a8" font-size="11" font-weight="500">Sleep Replay</text>
+  <text x="343" y="86" text-anchor="middle" fill="#6e4450" font-size="9">consolidation</text>
+  <line x1="343" y1="100" x2="343" y2="142" stroke="#343a40" stroke-width="1.5"/>
+  <polygon points="339,140 343,150 347,140" fill="#343a40"/>
+  <rect x="284" y="150" width="118" height="44" rx="8" fill="#162030" filter="url(#s)"/>
+  <text x="343" y="170" text-anchor="middle" fill="#74c0fc" font-size="11" font-weight="500">Consolidate</text>
+  <text x="343" y="184" text-anchor="middle" fill="#3a5570" font-size="9">nightly LLM</text>
+
+  <!-- 4 -->
+  <rect x="418" y="52" width="118" height="44" rx="8" fill="#2e1c22" filter="url(#s)"/>
+  <text x="477" y="72" text-anchor="middle" fill="#e599a8" font-size="11" font-weight="500">Forgetting</text>
+  <text x="477" y="86" text-anchor="middle" fill="#6e4450" font-size="9">memory decay</text>
+  <line x1="477" y1="100" x2="477" y2="142" stroke="#343a40" stroke-width="1.5"/>
+  <polygon points="473,140 477,150 481,140" fill="#343a40"/>
+  <rect x="418" y="150" width="118" height="44" rx="8" fill="#162030" filter="url(#s)"/>
+  <text x="477" y="170" text-anchor="middle" fill="#74c0fc" font-size="11" font-weight="500">Decay 0.95x</text>
+  <text x="477" y="184" text-anchor="middle" fill="#3a5570" font-size="9">weekly strength</text>
+
+  <!-- 5 -->
+  <rect x="552" y="52" width="118" height="44" rx="8" fill="#2e1c22" filter="url(#s)"/>
+  <text x="611" y="72" text-anchor="middle" fill="#e599a8" font-size="11" font-weight="500">Rehearsal</text>
+  <text x="611" y="86" text-anchor="middle" fill="#6e4450" font-size="9">strengthening</text>
+  <line x1="611" y1="100" x2="611" y2="142" stroke="#343a40" stroke-width="1.5"/>
+  <polygon points="607,140 611,150 615,140" fill="#343a40"/>
+  <rect x="552" y="150" width="118" height="44" rx="8" fill="#162030" filter="url(#s)"/>
+  <text x="611" y="170" text-anchor="middle" fill="#74c0fc" font-size="11" font-weight="500">access_count</text>
+  <text x="611" y="184" text-anchor="middle" fill="#3a5570" font-size="9">query citation</text>
+
+  <!-- 6 -->
+  <rect x="686" y="52" width="118" height="44" rx="8" fill="#2e1c22" filter="url(#s)"/>
+  <text x="745" y="72" text-anchor="middle" fill="#e599a8" font-size="11" font-weight="500">Abstraction</text>
+  <text x="745" y="86" text-anchor="middle" fill="#6e4450" font-size="9">schema formation</text>
+  <line x1="745" y1="100" x2="745" y2="142" stroke="#343a40" stroke-width="1.5"/>
+  <polygon points="741,140 745,150 749,140" fill="#343a40"/>
+  <rect x="686" y="150" width="118" height="44" rx="8" fill="#162030" filter="url(#s)"/>
+  <text x="745" y="170" text-anchor="middle" fill="#74c0fc" font-size="11" font-weight="500">5+ Sources</text>
+  <text x="745" y="184" text-anchor="middle" fill="#3a5570" font-size="9">synthesis rewrite</text>
+
+  <!-- 7 -->
+  <rect x="820" y="52" width="118" height="44" rx="8" fill="#2e1c22" filter="url(#s)"/>
+  <text x="879" y="72" text-anchor="middle" fill="#e599a8" font-size="11" font-weight="500">Plasticity</text>
+  <text x="879" y="86" text-anchor="middle" fill="#6e4450" font-size="9">rewiring</text>
+  <line x1="879" y1="100" x2="879" y2="142" stroke="#343a40" stroke-width="1.5"/>
+  <polygon points="875,140 879,150 883,140" fill="#343a40"/>
+  <rect x="820" y="150" width="118" height="44" rx="8" fill="#162030" filter="url(#s)"/>
+  <text x="879" y="170" text-anchor="middle" fill="#74c0fc" font-size="11" font-weight="500">Split · Cluster</text>
+  <text x="879" y="184" text-anchor="middle" fill="#3a5570" font-size="9">structural reorg</text>
+
+  <!-- Horizontal flow arrows: brain row -->
+  <text x="139" y="74" fill="#3d2530" font-size="11">→</text>
+  <text x="273" y="74" fill="#3d2530" font-size="11">→</text>
+  <text x="407" y="74" fill="#3d2530" font-size="11">→</text>
+  <text x="541" y="74" fill="#3d2530" font-size="11">→</text>
+  <text x="675" y="74" fill="#3d2530" font-size="11">→</text>
+  <text x="809" y="74" fill="#3d2530" font-size="11">→</text>
+
+  <!-- Horizontal flow arrows: muninn row -->
+  <text x="139" y="174" fill="#1e3040" font-size="11">→</text>
+  <text x="273" y="174" fill="#1e3040" font-size="11">→</text>
+  <text x="407" y="174" fill="#1e3040" font-size="11">→</text>
+  <text x="541" y="174" fill="#1e3040" font-size="11">→</text>
+  <text x="675" y="174" fill="#1e3040" font-size="11">→</text>
+  <text x="809" y="174" fill="#1e3040" font-size="11">→</text>
+
+  <!-- Legend -->
+  <rect x="360" y="228" width="10" height="10" rx="3" fill="#2e1c22"/>
+  <text x="376" y="238" fill="#5c5f66" font-size="9">Human brain</text>
+  <rect x="455" y="228" width="10" height="10" rx="3" fill="#162030"/>
+  <text x="471" y="238" fill="#5c5f66" font-size="9">Muninn</text>
+</svg>

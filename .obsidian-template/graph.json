@@ -1,0 +1,39 @@
+{
+  "collapse-filter": false,
+  "search": "-path:Wiki/Sources -path:Raw -path:Journal",
+  "showTags": false,
+  "showAttachments": false,
+  "hideUnresolved": true,
+  "showOrphans": true,
+  "collapse-color-groups": false,
+  "colorGroups": [
+    {
+      "query": "path:Wiki/Concepts",
+      "color": { "a": 1, "rgb": 4488191 }
+    },
+    {
+      "query": "path:Wiki/Entities",
+      "color": { "a": 1, "rgb": 5025616 }
+    },
+    {
+      "query": "path:Wiki/Topics",
+      "color": { "a": 1, "rgb": 10229247 }
+    },
+    {
+      "query": "path:Wiki/Projects",
+      "color": { "a": 1, "rgb": 16744448 }
+    }
+  ],
+  "collapse-display": false,
+  "showArrow": false,
+  "textFadeMultiplier": 0,
+  "nodeSizeMultiplier": 1,
+  "lineSizeMultiplier": 1,
+  "collapse-forces": false,
+  "centerStrength": 0.5,
+  "repelStrength": 10,
+  "linkStrength": 1,
+  "linkDistance": 250,
+  "scale": 1,
+  "close": true
+}

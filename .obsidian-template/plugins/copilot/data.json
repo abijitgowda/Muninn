@@ -1,0 +1,57 @@
+{
+  "defaultChainType": "llm_chain",
+  "defaultModelKey": "muninn|3rd party (openai-format)",
+  "embeddingModelKey": "mxbai-embed-large|ollama",
+  "temperature": 0.1,
+  "maxTokens": 6000,
+  "contextTurns": 15,
+  "stream": true,
+  "defaultSaveFolder": ".copilot/conversations",
+  "customPromptsFolder": ".copilot/prompts",
+  "projectsFolder": ".copilot/projects",
+  "memoryFolderName": ".copilot/memory",
+  "autosaveChat": true,
+  "generateAIChatTitleOnSave": true,
+  "defaultOpenArea": "view",
+  "defaultSendShortcut": "enter",
+  "indexVaultToVectorStore": "ON MODE SWITCH",
+  "qaExclusions": ".copilot",
+  "enableIndexSync": true,
+  "maxSourceChunks": 30,
+  "enableInlineCitations": true,
+  "activeModels": [
+    {
+      "name": "muninn",
+      "provider": "3rd party (openai-format)",
+      "enabled": true,
+      "isBuiltIn": false,
+      "baseUrl": "http://127.0.0.1:19828/v1",
+      "apiKey": "muninn",
+      "isEmbeddingModel": false,
+      "stream": true
+    }
+  ],
+  "activeEmbeddingModels": [
+    {
+      "name": "mxbai-embed-large",
+      "provider": "ollama",
+      "enabled": true,
+      "isBuiltIn": false,
+      "isEmbeddingModel": true,
+      "baseUrl": "",
+      "apiKey": ""
+    }
+  ],
+  "enableLexicalBoosts": true,
+  "reasoningEffort": "low",
+  "verbosity": "medium",
+  "enableSavedMemory": true,
+  "defaultConversationNoteName": "{$topic}@{$date}_{$time}",
+  "passMarkdownImages": true,
+  "enableCustomPromptTemplating": true,
+  "showSuggestedPrompts": false,
+  "showRelevantNotes": false,
+  "autoAddActiveContentToContext": false,
+  "enableRecentConversations": true,
+  "maxRecentConversations": 30
+}

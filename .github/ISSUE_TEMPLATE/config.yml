@@ -1,0 +1,5 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Question / Discussion
+    url: https://github.com/abijitgowda/Muninn/discussions
+    about: Ask questions or share how you're using Muninn
