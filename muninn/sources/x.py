@@ -24,8 +24,9 @@ import re
 import secrets
 import time
 import urllib.parse
+from collections.abc import Iterable
 from datetime import datetime
-from typing import Any, Iterable
+from typing import Any
 
 import httpx
 from dateutil import parser as dtparse

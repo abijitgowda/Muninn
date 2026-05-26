@@ -16,7 +16,8 @@ import json
 import os
 import time
 import uuid
-from typing import Any, Iterator
+from collections.abc import Iterator
+from typing import Any
 
 from rich.console import Console
 
@@ -250,7 +251,7 @@ def build_app() -> Any:
             "model": model,
             "choices": [{"index": 0, "delta": delta, "finish_reason": finish}],
         }
-        return f"data: {json.dumps(payload)}\n\n".encode("utf-8")
+        return f"data: {json.dumps(payload)}\n\n".encode()
 
     # ---- routes ----
 

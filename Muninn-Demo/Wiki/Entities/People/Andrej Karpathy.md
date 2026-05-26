@@ -10,7 +10,7 @@ tags:
 sources:
 - '[[2026-01-15-url-karpathy-llm-wiki]]'
 created: '2026-01-15'
-updated: '2026-05-25'
+updated: '2026-05-26'
 confidence: medium
 lifecycle: draft
 provenance:
@@ -19,8 +19,8 @@ provenance:
   ambiguous: 0.0
 schema: tech/ai
 strength: 1.0
-access_count: 2
-last_accessed: '2026-05-25T20:40:36'
+access_count: 3
+last_accessed: '2026-05-26T01:03:23'
 consolidation_count: 0
 roles:
 - researcher
@@ -33,6 +33,7 @@ notable_for: Co-founded OpenAI, Director of AI at Tesla, proposed the LLM Wiki c
   deep-learning educator
 url: https://karpathy.ai
 ---
+
 
 
 

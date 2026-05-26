@@ -10,7 +10,7 @@ tags:
 sources:
 - '[[2026-02-10-url-transformer-architecture-explained]]'
 created: '2026-02-10'
-updated: '2026-05-25'
+updated: '2026-05-26'
 confidence: high
 lifecycle: stable
 provenance:
@@ -19,14 +19,16 @@ provenance:
   ambiguous: 0.0
 schema: tech/ai
 strength: 1.2
-access_count: 3
-last_accessed: '2026-05-25T20:40:36'
+access_count: 5
+last_accessed: '2026-05-26T01:03:23'
 consolidation_count: 0
 related_concepts:
 - '[[Transformer Architecture]]'
 - '[[Context Window]]'
 field: ai/architectures
 ---
+
+
 
 
 

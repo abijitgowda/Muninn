@@ -10,7 +10,7 @@ tags:
 sources:
 - '[[2026-02-10-url-transformer-architecture-explained]]'
 created: '2026-02-11'
-updated: '2026-05-25'
+updated: '2026-05-26'
 confidence: high
 lifecycle: stable
 provenance:
@@ -19,8 +19,8 @@ provenance:
   ambiguous: 0.0
 schema: tech/ai
 strength: 1.0
-access_count: 1
-last_accessed: '2026-05-25T17:54:12'
+access_count: 2
+last_accessed: '2026-05-26T01:02:34'
 consolidation_count: 0
 related_concepts:
 - '[[Transformer Architecture]]'
@@ -28,6 +28,7 @@ related_concepts:
 - '[[Retrieval Augmented Generation]]'
 field: ai/architectures
 ---
+
 
 
 The context window is the maximum number of tokens that a [[Transformer Architecture]] model can attend to during a single forward pass. It represents the fundamental boundary of the model's working memory: anything outside the window is invisible to the model during generation. Early GPT models had context windows of 2,048 tokens; GPT-4 extended this to 128K tokens; and [[Anthropic]]'s Claude models have pushed to 200K tokens and beyond. [[Google DeepMind]]'s Gemini models have demonstrated windows exceeding 1 million tokens. These expansions have been driven by innovations in the [[Attention Mechanism]], including techniques like rotary position embeddings, sliding window attention, and FlashAttention that reduce the computational cost of processing long sequences.

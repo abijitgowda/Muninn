@@ -13,7 +13,6 @@ from typing import Any
 
 import yaml
 
-
 SKILL_FRONTMATTER_RE = re.compile(r"^---\n(.*?)\n---\n?(.*)$", re.DOTALL)
 
 

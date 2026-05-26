@@ -11,8 +11,8 @@ from __future__ import annotations
 
 import logging
 import os
+from collections.abc import Iterable
 from datetime import datetime
-from typing import Iterable
 
 import trafilatura
 

@@ -10,7 +10,7 @@ tags:
 sources:
 - '[[2026-01-15-url-karpathy-llm-wiki]]'
 created: '2026-01-15'
-updated: '2026-05-25'
+updated: '2026-05-26'
 confidence: medium
 lifecycle: draft
 provenance:
@@ -19,8 +19,8 @@ provenance:
   ambiguous: 0.0
 schema: tech/ai
 strength: 1.0
-access_count: 1
-last_accessed: '2026-05-25T17:54:12'
+access_count: 2
+last_accessed: '2026-05-26T01:02:34'
 consolidation_count: 0
 status: active
 started: '2026-01-01'
@@ -29,6 +29,7 @@ owners:
 goal: Build a local, self-maintaining knowledge base that turns raw digital inputs
   into an interlinked wiki
 ---
+
 
 
 

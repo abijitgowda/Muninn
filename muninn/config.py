@@ -13,8 +13,7 @@ from typing import Any
 
 import yaml
 from dotenv import load_dotenv
-from pydantic import BaseModel, Field, field_validator
-
+from pydantic import BaseModel, Field
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 DEFAULT_VAULT = PROJECT_ROOT / "Muninn-Vault"

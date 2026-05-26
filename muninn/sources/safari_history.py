@@ -16,9 +16,9 @@ import shutil
 import sqlite3
 import sys
 import tempfile
+from collections.abc import Iterable
 from datetime import datetime, timedelta
 from pathlib import Path
-from typing import Iterable
 
 import httpx
 import trafilatura

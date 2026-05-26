@@ -7,8 +7,9 @@ from __future__ import annotations
 
 import json
 import time
+from collections.abc import Iterator
 from dataclasses import dataclass
-from typing import Any, Iterator
+from typing import Any
 
 import httpx
 
@@ -46,7 +47,7 @@ class Ollama:
         self._client = httpx.Client(timeout=timeout, base_url=self.host)
         self.last_metrics = LLMMetrics()
 
-    def __enter__(self) -> "Ollama":
+    def __enter__(self) -> Ollama:
         return self
 
     def __exit__(self, *args: Any) -> None:

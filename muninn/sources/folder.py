@@ -7,9 +7,10 @@ import io
 import logging
 import shutil
 import subprocess
+from collections.abc import Iterable
 from datetime import datetime
 from pathlib import Path
-from typing import Any, Iterable
+from typing import Any
 
 from .base import SLUG_RE, RawItem, Source
 

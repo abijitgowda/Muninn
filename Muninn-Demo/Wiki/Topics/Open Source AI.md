@@ -10,7 +10,7 @@ tags:
 sources:
 - '[[2026-02-10-url-transformer-architecture-explained]]'
 created: '2026-02-18'
-updated: '2026-05-25'
+updated: '2026-05-26'
 confidence: medium
 lifecycle: draft
 provenance:
@@ -19,14 +19,15 @@ provenance:
   ambiguous: 0.0
 schema: tech/ai
 strength: 0.9
-access_count: 2
-last_accessed: '2026-05-25T20:40:36'
+access_count: 3
+last_accessed: '2026-05-26T01:02:34'
 consolidation_count: 0
 spans:
 - '[[OpenAI]]'
 - '[[Anthropic]]'
 - '[[Google DeepMind]]'
 ---
+
 
 
 

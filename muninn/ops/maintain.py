@@ -5,13 +5,12 @@ from __future__ import annotations
 import re
 from collections import Counter
 from datetime import datetime, timedelta
-from typing import Any
 
 from rich.console import Console
 
-from . import safe_date as _safe_date
 from ..config import Config
 from ..vault import Vault
+from . import safe_date as _safe_date
 
 
 def run_maintain(
@@ -34,8 +33,8 @@ def run_maintain(
 
     decayed, archived = _decay_pass(pages, vault, config, dry_run=dry_run, console=console)
 
-    from .consolidate import _dedup_pass, _supersession_pass
     from ..ollama import Ollama
+    from .consolidate import _dedup_pass, _supersession_pass
     llm = Ollama(
         host=config.settings.ollama_host,
         model=config.settings.model_for_ingest,
@@ -87,7 +86,7 @@ def run_refresh(config: Config, *, dry_run: bool, console: Console) -> None:
 def run_reindex(config: Config, *, dry_run: bool, console: Console) -> None:
     """Archive, re-queue, re-ingest. Wiki stays live."""
     vault = Vault(config.settings.vault_path)
-    console.print(f"[bold]Reindex[/bold]")
+    console.print("[bold]Reindex[/bold]")
     _reindex(vault, config, dry_run=dry_run, console=console)
 
 
@@ -171,8 +170,8 @@ def _cross_link(pages, vault: Vault, *, dry_run: bool, console: Console) -> int:
         for m in re.finditer(r'https?://\S+', body):
             skip_ranges.append((m.start(), m.end()))
 
-        def _in_protected(pos: int) -> bool:
-            return any(s <= pos < e for s, e in skip_ranges)
+        def _in_protected(pos: int, _ranges=skip_ranges) -> bool:
+            return any(s <= pos < e for s, e in _ranges)
 
         for title, target in titles:
             if target.path == p.path:
@@ -303,6 +302,7 @@ def _rebuild_overview(pages, vault: Vault, *, dry_run: bool, console: Console) -
 def _reindex(vault: Vault, config: Config, *, dry_run: bool, console: Console) -> None:
     """Archive wiki, re-queue all items, and re-ingest. Wiki stays live — pages are merged, not recreated."""
     import shutil
+
     from ..manifest import Manifest
 
     count = Manifest(config.settings.manifest_path)._conn.execute(
@@ -343,7 +343,8 @@ def _reindex(vault: Vault, config: Config, *, dry_run: bool, console: Console) -
 def _refresh_pages(pages, vault: Vault, config: Config, *, dry_run: bool, console: Console) -> None:
     """Update all pages in place — no LLM, no re-extraction. Fixes structural issues."""
     import re as _re
-    from ..provenance import extract_inline_provenance, compute_provenance
+
+    from ..provenance import compute_provenance, extract_inline_provenance
 
     skip_kinds = {"doc", "source-summary", "redirect"}
     knowledge = [p for p in pages if p.kind not in skip_kinds]
@@ -451,7 +452,7 @@ def _refresh_pages(pages, vault: Vault, config: Config, *, dry_run: bool, consol
         except ImportError:
             pass
 
-    console.print(f"[bold green]Refresh done.[/bold green]")
+    console.print("[bold green]Refresh done.[/bold green]")
 
 
 # ---------------------------------------------------------------------------
@@ -472,8 +473,7 @@ def _plasticity_pass(
     console: Console,
 ) -> dict[str, int]:
     """Brain plasticity: split overgrown pages, spawn cluster abstractions, reparent misclassified pages."""
-    from ..vault import STRUCTURAL_KINDS, WIKILINK_RE
-    from ..manifest import Manifest
+    from ..vault import STRUCTURAL_KINDS
 
     knowledge = [p for p in pages if p.kind not in STRUCTURAL_KINDS and p.frontmatter.get("lifecycle") != "pinned"]
     stats = {"splits": 0, "clusters": 0, "reparents": 0, "total": 0}
@@ -668,7 +668,7 @@ def _detect_clusters(pages: list, vault: Vault) -> list[tuple[list, set[str]]]:
     if len(link_sets) < 3:
         return []
 
-    existing_titles = {p.title.lower() for p in pages}
+    {p.title.lower() for p in pages}
     clusters: list[tuple[list, set[str]]] = []
     used: set[str] = set()
 
@@ -703,7 +703,7 @@ def _detect_clusters(pages: list, vault: Vault) -> list[tuple[list, set[str]]]:
     return clusters
 
 
-def _spawn_cluster(cluster_pages: list, shared_links: set[str], vault: Vault, llm) -> "Page | None":
+def _spawn_cluster(cluster_pages: list, shared_links: set[str], vault: Vault, llm):
     """Ask LLM to name and describe a cluster, then create an abstract parent page."""
     from ..vault import Page
 
@@ -715,7 +715,7 @@ def _spawn_cluster(cluster_pages: list, shared_links: set[str], vault: Vault, ll
         "create an abstract parent concept that ties them together. "
         'Return JSON: {"title": "...", "summary": "one sentence", "body": "2-3 paragraphs with [[wikilinks]] to the cluster pages"}'
     )
-    user = f"Cluster pages:\n" + "\n".join(summaries)
+    user = "Cluster pages:\n" + "\n".join(summaries)
 
     try:
         result = llm.chat_json(system, user, temperature=0.1, num_ctx=4096)

@@ -14,10 +14,10 @@ from __future__ import annotations
 
 import json
 import logging
-from datetime import datetime
+from collections.abc import Iterator
 from dataclasses import dataclass, field
+from datetime import datetime
 from pathlib import Path
-from typing import Iterator
 
 from rich.console import Console
 
@@ -26,8 +26,7 @@ from ..manifest import Manifest
 from ..ollama import Ollama, OllamaError
 from ..prompts import PromptLoader
 from ..vault import Vault
-
-from .retrieval import _adaptive_retrieve, _gather_context, _expand_followup
+from .retrieval import _adaptive_retrieve, _expand_followup, _gather_context
 
 log = logging.getLogger(__name__)
 

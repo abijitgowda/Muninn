@@ -150,7 +150,7 @@ class VectorStore:
         ids = results.get("ids", [[]])[0]
         metas = results.get("metadatas", [[]])[0]
         dists = results.get("distances", [[]])[0]
-        for page_id, meta, dist in zip(ids, metas, dists):
+        for page_id, meta, dist in zip(ids, metas, dists, strict=False):
             out.append({
                 "id": page_id,
                 "title": (meta or {}).get("title", ""),

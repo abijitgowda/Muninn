@@ -9,15 +9,13 @@ from __future__ import annotations
 import re
 from collections import defaultdict
 from datetime import datetime, timedelta
-from typing import Any
-
-from . import safe_date as _safe_date
 
 from rich.console import Console
 
 from ..config import Config
 from ..ollama import Ollama, OllamaError
 from ..vault import Page, Vault
+from . import safe_date as _safe_date
 
 # Kinds that should never be consolidated — they are structural/meta pages.
 _SKIP_KINDS = frozenset({"doc", "source-summary", "redirect"})

@@ -10,16 +10,16 @@ from __future__ import annotations
 
 import hashlib
 import ipaddress
+import re
 import socket
 import urllib.parse
-import re
 from abc import ABC, abstractmethod
+from collections.abc import Iterable
 from dataclasses import dataclass, field
 from datetime import datetime
-from typing import Any, Iterable
+from typing import Any
 
 import yaml
-
 
 SLUG_RE = re.compile(r"[^a-zA-Z0-9_-]+")
 

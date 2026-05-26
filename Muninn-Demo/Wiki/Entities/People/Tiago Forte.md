@@ -10,7 +10,7 @@ tags:
 sources:
 - '[[2026-03-05-browser-history-second-brain-methodology]]'
 created: '2026-03-05'
-updated: '2026-05-25'
+updated: '2026-05-26'
 confidence: medium
 lifecycle: draft
 provenance:
@@ -19,8 +19,8 @@ provenance:
   ambiguous: 0.0
 schema: productivity
 strength: 0.9
-access_count: 2
-last_accessed: '2026-05-25T20:38:52'
+access_count: 4
+last_accessed: '2026-05-26T01:03:23'
 consolidation_count: 0
 roles:
 - author
@@ -31,6 +31,8 @@ affiliations:
 notable_for: Created the Building a Second Brain (BASB) methodology, PARA organizational
   system, progressive summarization technique
 ---
+
+
 
 
 

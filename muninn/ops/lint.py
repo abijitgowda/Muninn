@@ -15,7 +15,6 @@ from rich.table import Table
 from ..config import Config
 from ..vault import Vault
 
-
 REQUIRED_FRONTMATTER = {
     "concept": ["title", "kind", "summary", "tags", "created", "updated", "lifecycle"],
     "person": ["title", "kind", "summary", "tags", "created", "updated", "lifecycle"],

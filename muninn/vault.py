@@ -16,7 +16,6 @@ from typing import Any
 
 import yaml
 
-
 FRONTMATTER_RE = re.compile(r"^---\n(.*?)\n---\n?(.*)$", re.DOTALL)
 WIKILINK_RE = re.compile(r"\[\[([^\]|#]+)(?:#[^\]|]+)?(?:\|([^\]]+))?\]\]")
 INVALID_FILENAME = re.compile(r'[<>:"/\\|?*\x00-\x1f]')
@@ -27,10 +26,10 @@ class _PageCache:
     """In-memory page cache with mtime-based invalidation."""
 
     def __init__(self) -> None:
-        self._cache: dict[Path, tuple[float, "Page"]] = {}  # path -> (mtime, Page)
+        self._cache: dict[Path, tuple[float, Page]] = {}  # path -> (mtime, Page)
         self._title_index: dict[str, Path] = {}  # title.lower() -> path
 
-    def get(self, path: Path) -> "Page | None":
+    def get(self, path: Path) -> Page | None:
         if path not in self._cache:
             return None
         mtime, page = self._cache[path]
@@ -44,7 +43,7 @@ class _PageCache:
             return None
         return page
 
-    def put(self, page: "Page") -> None:
+    def put(self, page: Page) -> None:
         try:
             mtime = page.path.stat().st_mtime
         except OSError:
@@ -57,7 +56,7 @@ class _PageCache:
             _, page = self._cache.pop(path)
             self._title_index.pop(page.title.lower(), None)
 
-    def find_by_title(self, title: str) -> "Page | None":
+    def find_by_title(self, title: str) -> Page | None:
         path = self._title_index.get(title.strip().lower())
         if path:
             return self.get(path)

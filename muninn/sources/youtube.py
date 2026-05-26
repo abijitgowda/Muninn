@@ -8,9 +8,10 @@ from __future__ import annotations
 
 import logging
 import re
+from collections.abc import Iterable
 from datetime import datetime
 from pathlib import Path
-from typing import Any, Iterable
+from typing import Any
 from urllib.parse import parse_qs, urlparse
 
 import yaml
@@ -49,7 +50,7 @@ class YouTubeTranscriptSource(Source):
         youtube_files = self._find_youtube_raws(vault, raw_sources, since)
         yielded = 0
 
-        for raw_path, frontmatter in youtube_files:
+        for _raw_path, frontmatter in youtube_files:
             if yielded >= max_videos:
                 break
 

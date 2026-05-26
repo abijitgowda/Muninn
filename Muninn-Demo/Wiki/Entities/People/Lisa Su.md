@@ -10,7 +10,7 @@ tags:
 sources:
 - '[[2026-02-10-url-transformer-architecture-explained]]'
 created: '2026-02-15'
-updated: '2026-05-25'
+updated: '2026-05-26'
 confidence: high
 lifecycle: stable
 provenance:
@@ -19,8 +19,8 @@ provenance:
   ambiguous: 0.0
 schema: tech/hardware
 strength: 1.0
-access_count: 0
-last_accessed: null
+access_count: 1
+last_accessed: '2026-05-26T01:03:23'
 consolidation_count: 0
 roles:
 - ceo
@@ -30,6 +30,7 @@ affiliations:
 notable_for: Turnaround of AMD with Zen architecture, leading AMD's AI accelerator
   strategy, one of the most prominent women in semiconductor industry
 ---
+
 
 
 Lisa Su is the president and CEO of Advanced Micro Devices ([[AMD]]), a position she has held since October 2014. Born in Tainan, Taiwan — the same city as [[Jensen Huang]], her distant relative — Su earned her PhD in electrical engineering from MIT, where she worked on silicon-on-insulator semiconductor technology. Before joining AMD, she held engineering and leadership roles at Texas Instruments, IBM (where she contributed to the development of the PlayStation 3's Cell processor), and Freescale Semiconductor. Her appointment as CEO came at a critical moment: AMD's stock price was below $3, the company was burdened with debt, and many analysts questioned its viability.

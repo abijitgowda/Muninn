@@ -64,7 +64,7 @@ def setup_obsidian(
     vault: str = typer.Argument(None, help="Vault path. Defaults to configured vault, or Muninn-Demo/."),
 ) -> None:
     """Copy .obsidian-template/ into a vault so it opens correctly in Obsidian."""
-    from .init_op import _setup_obsidian, DEMO_VAULT
+    from .init_op import DEMO_VAULT, _setup_obsidian
 
     if vault:
         target = Path(vault).expanduser().resolve()
@@ -79,8 +79,9 @@ def setup_obsidian(
         raise typer.Exit(1)
 
     # Bootstrap wiki.yaml and .env if missing
-    from .init_op import PROJECT_ROOT, EXAMPLE_ENV
     import shutil
+
+    from .init_op import EXAMPLE_ENV, PROJECT_ROOT
     wiki_yaml = PROJECT_ROOT / "wiki.yaml"
     if not wiki_yaml.exists():
         example = PROJECT_ROOT / "wiki.example.yaml"
@@ -91,12 +92,12 @@ def setup_obsidian(
     env_file = PROJECT_ROOT / ".env"
     if not env_file.exists() and EXAMPLE_ENV.exists():
         shutil.copy(EXAMPLE_ENV, env_file)
-        console.print(f"  [green]created .env[/green]")
+        console.print("  [green]created .env[/green]")
 
     _setup_obsidian(target, console)
     console.print(f"\n[green]Done.[/green] Open [cyan]{target}[/cyan] in Obsidian.")
-    console.print(f"  If prompted, turn off Restricted mode to enable Copilot.")
-    console.print(f"  Run [cyan]muninn serve[/cyan] and start chatting.")
+    console.print("  If prompted, turn off Restricted mode to enable Copilot.")
+    console.print("  Run [cyan]muninn serve[/cyan] and start chatting.")
 
 
 @app.command()
@@ -204,8 +205,8 @@ def reindex(
 @app.command(name="vectorstore-sync")
 def vectorstore_sync() -> None:
     """Sync all wiki pages into the ChromaDB vector store."""
-    from .vectorstore import VectorStore
     from .vault import Vault
+    from .vectorstore import VectorStore
 
     cfg = load_config()
     vault = Vault(cfg.settings.vault_path)

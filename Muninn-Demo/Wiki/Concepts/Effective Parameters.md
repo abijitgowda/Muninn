@@ -10,7 +10,7 @@ tags:
 - concept
 sources: []
 created: '2026-05-25'
-updated: '2026-05-25'
+updated: '2026-05-26'
 confidence: medium
 lifecycle: draft
 provenance:
@@ -19,10 +19,11 @@ provenance:
   ambiguous: 0.0
 schema: ai/llm
 strength: 1.0
-access_count: 1
-last_accessed: '2026-05-25T17:54:12'
+access_count: 2
+last_accessed: '2026-05-26T01:02:34'
 consolidation_count: 0
 ---
+
 
 
 # Effective Parameters

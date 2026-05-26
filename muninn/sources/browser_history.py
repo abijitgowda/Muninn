@@ -13,15 +13,14 @@ import sqlite3
 import sys
 import tempfile
 import urllib.parse
+from collections.abc import Iterable
 from datetime import datetime, timedelta
 from pathlib import Path
-from typing import Iterable
 
 import httpx
 import trafilatura
 
 from .base import RawItem, Source
-
 
 # Chromium stores timestamps as microseconds since 1601-01-01.
 CHROME_EPOCH = datetime(1601, 1, 1)

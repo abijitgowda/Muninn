@@ -91,6 +91,7 @@ def _expand_followup(question: str, history_context: str) -> str:
 # which imports us.  We use TYPE_CHECKING so the annotation resolves at
 # type-check time but the actual import happens at runtime only when needed.
 from typing import TYPE_CHECKING
+
 if TYPE_CHECKING:
     from .query import QueryContext
 
@@ -114,7 +115,7 @@ def _detect_query_type(question: str) -> str:
     return "hybrid"
 
 
-def _detect_source_filter(question: str, ctx: "QueryContext") -> list[str] | None:
+def _detect_source_filter(question: str, ctx: QueryContext) -> list[str] | None:
     """Detect if the question references a specific source and return matching source names.
 
     Matches against configured source names, types, and common synonyms
@@ -159,7 +160,7 @@ def _detect_source_filter(question: str, ctx: "QueryContext") -> list[str] | Non
 
 def _hippocampal_recall(
     question: str,
-    ctx: "QueryContext",
+    ctx: QueryContext,
     idx_text: str,
     *,
     deep: bool = False,
@@ -238,7 +239,7 @@ def _hippocampal_recall(
     return out
 
 
-def _filter_by_recency(pages: list["Page"], max_age_days: int | None) -> list["Page"]:
+def _filter_by_recency(pages: list[Page], max_age_days: int | None) -> list[Page]:
     """Filter pages by age. None = no filter (all-time)."""
     if max_age_days is None:
         return pages
@@ -259,7 +260,7 @@ def _filter_by_recency(pages: list["Page"], max_age_days: int | None) -> list["P
 
 def _adaptive_retrieve(
     question: str,
-    ctx: "QueryContext",
+    ctx: QueryContext,
     idx_text: str,
     *,
     deep: bool = False,
@@ -273,6 +274,7 @@ def _adaptive_retrieve(
     5. Spread activation to follow wikilink connections
     """
     import time as _time
+
     from ..vault import STRUCTURAL_KINDS
 
     t0 = _time.monotonic()
@@ -292,7 +294,6 @@ def _adaptive_retrieve(
     if not all_pages:
         return [("Wiki/index.md", idx_text)]
 
-    min_results = 3 if not deep else 5
 
     # ---- Phase 1: Temporal cascade ----
     if query_type == "episodic":
@@ -389,7 +390,7 @@ def _adaptive_retrieve(
 # ---------------------------------------------------------------------------
 
 def _spread_activation(
-    seeds: list[Page], ctx: "QueryContext", n_extra: int = 5, max_hops: int = 2
+    seeds: list[Page], ctx: QueryContext, n_extra: int = 5, max_hops: int = 2
 ) -> list[Page]:
     """Multi-hop activation propagation with decay.
 
@@ -397,7 +398,7 @@ def _spread_activation(
     Nodes reached from multiple seeds get cumulative boost.
     Strength gates propagation.
     """
-    from ..vault import WIKILINK_RE, STRUCTURAL_KINDS
+    from ..vault import STRUCTURAL_KINDS, WIKILINK_RE
 
     activation: dict[str, float] = {}
     page_cache: dict[str, Page] = {}
@@ -474,7 +475,7 @@ def _spread_activation(
 
 def _gather_context(
     question: str,
-    ctx: "QueryContext",
+    ctx: QueryContext,
     *,
     deep: bool,
     idx_text: str,
@@ -616,7 +617,7 @@ def _get_vectorstore(vault: Vault, ollama_host: str) -> Any:
 def _vector_rank(
     question: str,
     pages: list[Page],
-    ctx: "QueryContext",
+    ctx: QueryContext,
     embed_model: str = "mxbai-embed-large",
 ) -> list[Page]:
     vs = _get_vectorstore(ctx.vault, ctx.ollama.host)

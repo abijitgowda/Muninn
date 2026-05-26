@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import os
 from pathlib import Path
 
 import pytest
@@ -11,29 +10,18 @@ import yaml
 from muninn.config import SourceConfig, load_config
 
 
-def test_source_config_valid_schedule():
+def test_source_config_basic():
     s = SourceConfig(
         name="x",
         type="browser_history",
         url="file:///tmp/H",
         tool="muninn.sources.browser_history:BrowserHistorySource",
-        schedule="hourly",
     )
-    assert s.schedule == "hourly"
+    assert s.name == "x"
+    assert s.enabled is True
 
 
-def test_source_config_invalid_schedule():
-    with pytest.raises(Exception):
-        SourceConfig(
-            name="x",
-            type="x",
-            url="x",
-            tool="m:C",
-            schedule="every_2min",  # not in the allowed set
-        )
-
-
-def test_load_config_round_trip(tmp_path, monkeypatch):
+def test_load_config_round_trip(tmp_path):
     cfg_yaml = tmp_path / "wiki.yaml"
     cfg_yaml.write_text(
         yaml.safe_dump(
@@ -58,7 +46,7 @@ def test_load_config_round_trip(tmp_path, monkeypatch):
     assert cfg.settings.ollama_model == "test-model"
 
 
-def test_secret_resolution(monkeypatch, tmp_path):
+def test_secret_resolution(monkeypatch):
     monkeypatch.setenv("MY_SECRET", "shh")
     s = SourceConfig(
         name="x",
@@ -66,7 +54,6 @@ def test_secret_resolution(monkeypatch, tmp_path):
         url="x",
         tool="m:C",
         secret_env="MY_SECRET",
-        schedule="hourly",
     )
     assert s.secret == "shh"
 
@@ -79,14 +66,12 @@ def test_secret_missing_raises(monkeypatch):
         url="x",
         tool="m:C",
         secret_env="MISSING_SECRET",
-        schedule="hourly",
     )
     with pytest.raises(RuntimeError):
         _ = s.secret
 
 
-def test_per_op_model_overrides(tmp_path, monkeypatch):
-    """Ingest/query model overrides take precedence; both fall back to ollama_model."""
+def test_per_op_model_overrides(tmp_path):
     cfg_yaml = tmp_path / "wiki.yaml"
     cfg_yaml.write_text(
         yaml.safe_dump(
@@ -109,7 +94,7 @@ def test_per_op_model_overrides(tmp_path, monkeypatch):
     assert cfg.settings.model_for_query == "query-model"
 
 
-def test_per_op_model_falls_back(tmp_path, monkeypatch):
+def test_per_op_model_falls_back(tmp_path):
     cfg_yaml = tmp_path / "wiki.yaml"
     cfg_yaml.write_text(yaml.safe_dump({"settings": {"ollama_model": "only-default"}, "sources": []}))
     (tmp_path / "vault").mkdir()

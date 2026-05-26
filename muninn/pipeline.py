@@ -21,7 +21,7 @@ from rich.console import Console
 
 from .config import Config, SourceConfig
 from .manifest import Manifest
-from .ollama import Ollama, LLMMetrics, OllamaError
+from .ollama import LLMMetrics, Ollama, OllamaError
 from .prompts import ANALYSIS_JSON_INSTRUCTION, EXTRACTION_JSON_INSTRUCTION, PromptLoader
 from .provenance import aggregate_confidence, compute_provenance, extract_inline_provenance
 from .sources.base import Source
@@ -262,7 +262,7 @@ class Pipeline:
                 item_state = self.manifest.get_item(src_cfg.name, item.item_id)
                 if item_state and item_state.status == "skipped":
                     results.append(IngestResult(item.item_id, Path(item.path), [], "skipped"))
-                    self.console.print(f" ⊘ skipped (garbage body)")
+                    self.console.print(" ⊘ skipped (garbage body)")
                     continue
                 m = self.ollama.last_metrics
                 self.manifest.mark_processed(
@@ -537,7 +537,7 @@ class Pipeline:
         ]
         provenance = compute_provenance(page_claims) if page_claims else {"extracted": 0.8, "inferred": 0.2, "ambiguous": 0.0}
         confidence = aggregate_confidence(page_claims) or "medium"
-        open_qs = [q for q in extraction.get("open_questions", []) if isinstance(q, str)]
+        [q for q in extraction.get("open_questions", []) if isinstance(q, str)]
 
         schema = self._derive_schema(extraction, kind, title)
         tags = [seg for seg in schema.split("/") if seg] + [kind]
