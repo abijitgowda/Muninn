@@ -21,7 +21,7 @@ settings:
 
   # Ollama-specific (only needed when provider is ollama)
   ollama_host: http://localhost:11434
-  log_level: INFO                        # DEBUG | INFO | WARNING | ERROR
+  log_level: WARNING                        # DEBUG | INFO | WARNING | ERROR
 
   # Context window — how many tokens the model processes per call.
   # Larger = more content per call but slower. Match to your model's capacity.
