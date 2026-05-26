@@ -24,7 +24,8 @@ def run_init(install_launchd: bool, console: Console) -> None:
 
     # ---- Vault setup ----
     vault_name = typer.prompt("Vault name", default="Muninn-Vault")
-    vault_path = PROJECT_ROOT / vault_name
+    default_vault_path = str(PROJECT_ROOT / vault_name)
+    vault_path = Path(typer.prompt("Vault path", default=default_vault_path)).expanduser().resolve()
 
     if vault_path.exists():
         console.print(f"  vault exists: [cyan]{vault_path}[/cyan]")
@@ -35,12 +36,18 @@ def run_init(install_launchd: bool, console: Console) -> None:
 
     # ---- Model selection ----
     if ollama_ok and models:
-        console.print(f"\n  Available models: {', '.join(models[:10])}")
-        ingest_model = typer.prompt("Ingest model", default=models[0] if models else "qwen3:8b")
+        _embed_names = {"mxbai-embed", "nomic-embed", "all-minilm", "snowflake-arctic-embed", "embed"}
+        chat_models = [m for m in models if not any(e in m.lower() for e in _embed_names)]
+        console.print(f"\n  Available models: {', '.join(chat_models[:10])}")
+        default_model = "gemma4:e4b" if "gemma4:e4b" in chat_models else (chat_models[0] if chat_models else "gemma4:e4b")
+        ingest_model = typer.prompt("Ingest model", default=default_model)
         query_model = typer.prompt("Query model", default=ingest_model)
     else:
         ingest_model = typer.prompt("Ingest model", default="gemma4:e4b")
         query_model = typer.prompt("Query model", default=ingest_model)
+
+    # ---- Write .env early so _store_secret can append to it ----
+    _write_env(console)
 
     # ---- Source configuration ----
     console.print("\n[bold]Configure sources[/bold]")
@@ -71,7 +78,7 @@ def run_init(install_launchd: bool, console: Console) -> None:
         git_root = typer.prompt("Git root", default=str(Path.home() / "git"))
         sources.append(_git_source(git_root, vault_name))
 
-    if typer.confirm("Enable personal documents?", default=False):
+    if typer.confirm("Enable personal documents?", default=True):
         docs_path = typer.prompt("Documents folder")
         sources.append(_docs_source(docs_path))
 
@@ -85,7 +92,6 @@ def run_init(install_launchd: bool, console: Console) -> None:
 
     # ---- Write configs ----
     _write_wiki_yaml(vault_name, ingest_model, query_model, sources, console)
-    _write_env(console)
 
     # ---- Log directory ----
     (Path.home() / "Library" / "Logs" / "Muninn").mkdir(parents=True, exist_ok=True)
@@ -252,10 +258,10 @@ def _write_wiki_yaml(
         "settings": {
             "vault_path": f"./{vault_name}",
             "ollama_host": "http://localhost:11434",
-            "ollama_model": ingest_model,
-            "ollama_model_ingest": ingest_model,
-            "ollama_model_query": query_model,
-            "ollama_timeout": 900,
+            "llm_model": ingest_model,
+            "llm_model_ingest": ingest_model,
+            "llm_model_query": query_model,
+            "llm_timeout": 900,
             "log_level": "INFO",
             "num_ctx_ingest": 32768,
             "num_ctx_query": 32768,
@@ -288,7 +294,7 @@ def _write_wiki_yaml(
 def _write_env(console: Console) -> None:
     path = PROJECT_ROOT / ".env"
     if path.exists():
-        if not typer.confirm(".env exists. Overwrite?", default=False):
+        if not typer.confirm(".env exists (may contain secrets). Overwrite?", default=False):
             console.print("  keeping existing .env")
             return
     if EXAMPLE_ENV.exists():

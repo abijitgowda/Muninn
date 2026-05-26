@@ -179,15 +179,30 @@ Binds to `127.0.0.1:19828`. Token-protected via `MUNINN_API_TOKEN` in `.env` (op
 
 ## 6. Configuration
 
-### Models
+### Providers
 
-| Operation | Default | Alternatives |
+| Provider | Covers | API key env var |
 |---|---|---|
-| Ingest | `gemma4:e4b` | `granite4.1:8b`, `qwen3:8b` |
-| Query | `gemma4:e4b` | `qwen3:14b`, `qwen3:8b` |
-| Embeddings | `mxbai-embed-large` | — |
+| `ollama` | Local models (default) | — |
+| `openai` | OpenAI (GPT-4o, etc.) | `OPENAI_API_KEY` |
+| `anthropic` | Anthropic (Claude) | `ANTHROPIC_API_KEY` |
+| `openrouter` | OpenRouter (any model) | `OPENROUTER_API_KEY` |
+| `custom` | Any OpenAI-compatible endpoint | `LLM_API_KEY` |
 
-Configured in `wiki.yaml`. Fallback chain: `ollama_model_ingest → ollama_model`, `ollama_model_query → ollama_model`.
+Mix providers per operation — local for ingest (privacy), cloud for query (quality):
+
+```yaml
+settings:
+  llm_provider: ollama
+  llm_provider_ingest: ollama
+  llm_provider_query: anthropic
+  llm_model_ingest: gemma4:e4b
+  llm_model_query: claude-sonnet-4-6
+```
+
+Embeddings always run through Ollama locally regardless of chat provider.
+
+Fallback chain: `llm_provider_ingest → llm_provider`, `ollama_model_ingest → ollama_model`.
 
 ### Ollama tuning (Apple Silicon)
 
@@ -214,7 +229,13 @@ muninn/
   cli.py                      typer CLI
   config.py                   wiki.yaml + .env → pydantic
   pipeline.py                 ingest orchestrator
-  ollama.py                   httpx client for Ollama
+  ollama.py                   httpx client for Ollama (legacy, used by llm/)
+  llm/                        provider abstraction
+    base.py                   LLMProvider ABC
+    factory.py                create_provider() from config
+    ollama_provider.py        local Ollama
+    openai_provider.py        OpenAI / OpenRouter / any compatible
+    anthropic_provider.py     Anthropic Claude
   vault.py                    markdown read/write with YAML frontmatter
   manifest.py                 SQLite delta tracker
   prompts.py                  loads SKILL.md as system prompts
