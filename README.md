@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="docs/logo.png" alt="Muninn" width="480"/>
+  <img src="docs/Muninn.jpeg" alt="Muninn" width="480"/>
 </p>
 
 <p align="center"><strong>Your local memory. Private by design.</strong></p>
@@ -84,6 +84,8 @@ For manual work: `muninn/sources/` for connectors, `wiki.yaml` for configuration
 - [Obsidian](https://obsidian.md) (optional — the wiki is plain markdown)
 
 ## Architecture
+
+![Architecture](docs/architecture.svg)
 
 ```
 Vault/
