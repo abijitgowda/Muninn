@@ -101,6 +101,10 @@ See [DESIGN.md](DESIGN.md) for the full architecture, retrieval pipeline, memory
 
 Everything local. Ollama on your machine. ChromaDB on disk. Serve binds to `127.0.0.1`. Secrets in `.env` (gitignored). The only network calls are source fetches you opt into.
 
+## About me
+
+Built by [Abijit Gowda](https://www.linkedin.com/in/abijitgowda/). Feel free to connect — [LinkedIn](https://www.linkedin.com/in/abijitgowda/) · [X](https://x.com/abijitn)
+
 ## License
 
 MIT
