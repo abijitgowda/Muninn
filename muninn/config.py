@@ -9,11 +9,14 @@ from __future__ import annotations
 import os
 from importlib import import_module
 from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 import yaml
 from dotenv import load_dotenv
 from pydantic import BaseModel, Field
+
+if TYPE_CHECKING:
+    from muninn.llm.base import LLMProvider
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 DEFAULT_VAULT = PROJECT_ROOT / "Muninn-Vault"
@@ -110,7 +113,7 @@ class Settings(BaseModel):
     def provider_for_query(self) -> str:
         return self.llm_provider_query or self.llm_provider
 
-    def create_llm(self, operation: str = "query") -> "LLMProvider":
+    def create_llm(self, operation: str = "query") -> LLMProvider:
         """Create an LLM provider for the given operation (ingest or query)."""
         from muninn.llm import create_provider
 
