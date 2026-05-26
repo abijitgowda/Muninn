@@ -47,20 +47,114 @@ def instantiate_source(src_cfg: SourceConfig) -> Source:
     )
 
 
-_STOP_WORDS = frozenset({
-    "the", "a", "an", "is", "are", "was", "were", "be", "been", "being",
-    "have", "has", "had", "do", "does", "did", "will", "would", "could",
-    "should", "may", "might", "shall", "can", "need", "dare", "ought",
-    "to", "of", "in", "for", "on", "with", "at", "by", "from", "as",
-    "into", "through", "during", "before", "after", "above", "below",
-    "between", "out", "off", "over", "under", "again", "further", "then",
-    "once", "and", "but", "or", "nor", "not", "so", "yet", "both",
-    "each", "few", "more", "most", "other", "some", "such", "no",
-    "only", "own", "same", "than", "too", "very", "just", "because",
-    "if", "when", "where", "how", "what", "which", "who", "whom",
-    "this", "that", "these", "those", "it", "its", "he", "she", "they",
-    "we", "you", "i", "me", "my", "your", "his", "her", "our", "their",
-})
+_STOP_WORDS = frozenset(
+    {
+        "the",
+        "a",
+        "an",
+        "is",
+        "are",
+        "was",
+        "were",
+        "be",
+        "been",
+        "being",
+        "have",
+        "has",
+        "had",
+        "do",
+        "does",
+        "did",
+        "will",
+        "would",
+        "could",
+        "should",
+        "may",
+        "might",
+        "shall",
+        "can",
+        "need",
+        "dare",
+        "ought",
+        "to",
+        "of",
+        "in",
+        "for",
+        "on",
+        "with",
+        "at",
+        "by",
+        "from",
+        "as",
+        "into",
+        "through",
+        "during",
+        "before",
+        "after",
+        "above",
+        "below",
+        "between",
+        "out",
+        "off",
+        "over",
+        "under",
+        "again",
+        "further",
+        "then",
+        "once",
+        "and",
+        "but",
+        "or",
+        "nor",
+        "not",
+        "so",
+        "yet",
+        "both",
+        "each",
+        "few",
+        "more",
+        "most",
+        "other",
+        "some",
+        "such",
+        "no",
+        "only",
+        "own",
+        "same",
+        "than",
+        "too",
+        "very",
+        "just",
+        "because",
+        "if",
+        "when",
+        "where",
+        "how",
+        "what",
+        "which",
+        "who",
+        "whom",
+        "this",
+        "that",
+        "these",
+        "those",
+        "it",
+        "its",
+        "he",
+        "she",
+        "they",
+        "we",
+        "you",
+        "i",
+        "me",
+        "my",
+        "your",
+        "his",
+        "her",
+        "our",
+        "their",
+    }
+)
 
 _LINK_RE = re.compile(r"\[([^\]]*)\]\([^)]+\)")
 
@@ -80,11 +174,24 @@ def _is_garbage_body(body: str, frontmatter: dict | None = None) -> bool:
     url = str(fm.get("source_url", "")).lower()
 
     # ---- Layer 1: URL patterns ----
-    if any(seg in url for seg in (
-        "/login", "/signin", "/sign-in", "/authorize", "/oauth",
-        "/sso/", "/saml/", "/callback", "/logout", "/signup",
-        "client_id=", "redirect_uri=", "response_type=",
-    )):
+    if any(
+        seg in url
+        for seg in (
+            "/login",
+            "/signin",
+            "/sign-in",
+            "/authorize",
+            "/oauth",
+            "/sso/",
+            "/saml/",
+            "/callback",
+            "/logout",
+            "/signup",
+            "client_id=",
+            "redirect_uri=",
+            "response_type=",
+        )
+    ):
         return True
 
     # ---- Layer 2: Extraction failure ----
@@ -119,7 +226,7 @@ def _is_garbage_body(body: str, frontmatter: dict | None = None) -> bool:
 
     # ---- Layer 5: Sentence coherence ----
     # Real articles: avg 10-25 words/sentence. Menu fragments: <4.
-    sentences = [s.strip() for s in re.split(r'[.!?]+', sample) if s.strip()]
+    sentences = [s.strip() for s in re.split(r"[.!?]+", sample) if s.strip()]
     if len(sentences) >= 3:
         avg_sentence_len = sum(len(s.split()) for s in sentences) / len(sentences)
         if avg_sentence_len < 4:
@@ -192,6 +299,7 @@ class Pipeline:
         if self._vectorstore is None:
             try:
                 from .vectorstore import VectorStore
+
                 self._vectorstore = VectorStore(
                     persist_dir=self.config.settings.state_dir / "chroma",
                     ollama_host=self.config.settings.ollama_host,
@@ -211,9 +319,7 @@ class Pipeline:
         # Override the source's max_items when the CLI passes --limit (so the SQL
         # query actually returns enough rows instead of capping at options.max_items).
         if limit:
-            source.options["max_items"] = max(
-                int(source.options.get("max_items", 50)), limit
-            )
+            source.options["max_items"] = max(int(source.options.get("max_items", 50)), limit)
 
         # Step 1+2: pull, write raw, filter garbage at fetch time
         new_count = 0
@@ -228,7 +334,9 @@ class Pipeline:
             raw_page = self.vault.read_page(raw_path)
             if _is_garbage_body(raw_page.body, raw_page.frontmatter):
                 self.manifest.add_item(src_cfg.name, item.id, str(rel))
-                self.manifest.update_item(src_cfg.name, item.id, status="skipped", error="garbage body detected")
+                self.manifest.update_item(
+                    src_cfg.name, item.id, status="skipped", error="garbage body detected"
+                )
                 skipped_count += 1
             else:
                 self.manifest.add_item(src_cfg.name, item.id, str(rel))
@@ -238,7 +346,10 @@ class Pipeline:
                 break
         if latest_ts:
             self.manifest.set_cursor(src_cfg.name, latest_ts)
-        self.console.print(f"  fetched: {new_count} new items" + (f" ({skipped_count} garbage skipped)" if skipped_count else ""))
+        self.console.print(
+            f"  fetched: {new_count} new items"
+            + (f" ({skipped_count} garbage skipped)" if skipped_count else "")
+        )
 
         if dry_run:
             self.console.print("  [yellow]dry-run: skipping LLM step[/yellow]")
@@ -266,11 +377,14 @@ class Pipeline:
                     continue
                 m = self.ollama.last_metrics
                 self.manifest.mark_processed(
-                    src_cfg.name, item.item_id, touched,
-                    eval_rate=m.eval_rate, total_duration_ms=m.total_duration_ms,
+                    src_cfg.name,
+                    item.item_id,
+                    touched,
+                    eval_rate=m.eval_rate,
+                    total_duration_ms=m.total_duration_ms,
                 )
                 results.append(IngestResult(item.item_id, Path(item.path), touched, "processed"))
-                perf = f" ({m.eval_rate:.0f} tok/s, {m.total_duration_ms/1000:.1f}s)" if m.eval_rate else ""
+                perf = f" ({m.eval_rate:.0f} tok/s, {m.total_duration_ms / 1000:.1f}s)" if m.eval_rate else ""
                 self.console.print(f" ✓ {len(touched)} pages{perf}")
                 consecutive_failures = 0
             except Exception as e:  # noqa: BLE001
@@ -280,7 +394,9 @@ class Pipeline:
                 self.console.print(f" ✗ {err}")
                 consecutive_failures += 1
                 if consecutive_failures >= 3:
-                    self.console.print(f"  [red]stopping: {consecutive_failures} consecutive failures — Ollama may be down[/red]")
+                    self.console.print(
+                        f"  [red]stopping: {consecutive_failures} consecutive failures — Ollama may be down[/red]"
+                    )
                     break
 
         return results
@@ -296,23 +412,35 @@ class Pipeline:
 
         schema_hint = _schema_hint_for_source(src_cfg)
         existing_titles = self._get_existing_titles()
-        body_text = raw_page.body.strip()[:self.config.settings.max_body_ingest]
+        body_text = raw_page.body.strip()[: self.config.settings.max_body_ingest]
         raw_rel = str(raw_path.relative_to(self.vault.root))
 
         import time as _time
+
         t0 = _time.monotonic()
         pass_type = "two-pass" if self.config.settings.two_pass_ingest else "single-pass"
         if self.config.settings.two_pass_ingest:
-            extraction = self._two_pass_extract(raw_rel, raw_page.frontmatter, body_text, schema_hint, existing_titles)
+            extraction = self._two_pass_extract(
+                raw_rel, raw_page.frontmatter, body_text, schema_hint, existing_titles
+            )
         else:
-            extraction = self._single_pass_extract(raw_rel, raw_page.frontmatter, body_text, schema_hint, existing_titles)
+            extraction = self._single_pass_extract(
+                raw_rel, raw_page.frontmatter, body_text, schema_hint, existing_titles
+            )
         extract_ms = (_time.monotonic() - t0) * 1000
         n_entities = len(extraction.get("entities", []))
         n_concepts = len(extraction.get("concepts", []))
         n_claims = len(extraction.get("claims", []))
         log.info(
             "extract: %s %s — %s, %d entities, %d concepts, %d claims, body=%d chars, %.0fms",
-            src_cfg.name, item_id[:12], pass_type, n_entities, n_concepts, n_claims, len(body_text), extract_ms,
+            src_cfg.name,
+            item_id[:12],
+            pass_type,
+            n_entities,
+            n_concepts,
+            n_claims,
+            len(body_text),
+            extract_ms,
         )
 
         touched: list[str] = []
@@ -332,7 +460,9 @@ class Pipeline:
         }
         source_summary_link = self._source_summary_link(src_cfg.type, raw_page, item_id)
         source_ref = raw_page.frontmatter.get("source_url") or str(raw_path.relative_to(self.vault.root))
-        self._source_date = raw_page.frontmatter.get("read_date") or raw_page.frontmatter.get("created_at") or None
+        self._source_date = (
+            raw_page.frontmatter.get("read_date") or raw_page.frontmatter.get("created_at") or None
+        )
         if isinstance(self._source_date, str) and "T" in self._source_date:
             self._source_date = self._source_date.split("T")[0]
 
@@ -410,7 +540,11 @@ class Pipeline:
 
         # ---- Pass 4: append logs ----
         ts_str = datetime.now().strftime("%H:%M")
-        summary = extraction.get("log_summary") or extraction.get("summary") or raw_page.frontmatter.get("title", "")
+        summary = (
+            extraction.get("log_summary")
+            or extraction.get("summary")
+            or raw_page.frontmatter.get("title", "")
+        )
         log_line = (
             f"## [{ts_str}] ingest | {src_cfg.name} | {summary}\n"
             f"- Touched: {', '.join(touched[:8])}{' …' if len(touched) > 8 else ''}\n"
@@ -423,12 +557,19 @@ class Pipeline:
 
     # ---- helpers ----
 
-    def _single_pass_extract(self, raw_rel: str, frontmatter: dict, body: str, schema_hint: str, existing_titles: str) -> dict:
+    def _single_pass_extract(
+        self, raw_rel: str, frontmatter: dict, body: str, schema_hint: str, existing_titles: str
+    ) -> dict:
         system = "You are a knowledge extraction agent. Output JSON only."
         user = (
-            EXTRACTION_JSON_INSTRUCTION + "\n\n"
+            EXTRACTION_JSON_INSTRUCTION
+            + "\n\n"
             + (f"SCHEMA CONTEXT: This source is about {schema_hint}.\n\n" if schema_hint else "")
-            + (f"EXISTING WIKI PAGES (reference these as [[wikilinks]] in your context fields):\n{existing_titles}\n\n" if existing_titles else "")
+            + (
+                f"EXISTING WIKI PAGES (reference these as [[wikilinks]] in your context fields):\n{existing_titles}\n\n"
+                if existing_titles
+                else ""
+            )
             + f"Source: {raw_rel}\n"
             + f"Frontmatter: {frontmatter}\n\n"
             + f"=== BODY ===\n{body}\n=== END BODY ==="
@@ -438,19 +579,24 @@ class Pipeline:
         except OllamaError as e:
             raise RuntimeError(f"Ollama extraction failed: {e}") from e
 
-    def _two_pass_extract(self, raw_rel: str, frontmatter: dict, body: str, schema_hint: str, existing_titles: str) -> dict:
+    def _two_pass_extract(
+        self, raw_rel: str, frontmatter: dict, body: str, schema_hint: str, existing_titles: str
+    ) -> dict:
         import json as _json
 
         # ---- Pass 1: chain-of-thought analysis ----
         analysis_system = "You are a knowledge analysis agent. Think deeply about the source content."
         analysis_user = (
-            ANALYSIS_JSON_INSTRUCTION + "\n\n"
+            ANALYSIS_JSON_INSTRUCTION
+            + "\n\n"
             + (f"SCHEMA CONTEXT: This source is about {schema_hint}.\n\n" if schema_hint else "")
             + f"Source: {raw_rel}\nFrontmatter: {frontmatter}\n\n"
             + f"=== BODY ===\n{body}\n=== END BODY ==="
         )
         try:
-            analysis = self.ollama.chat_json(analysis_system, analysis_user, num_ctx=self.config.settings.num_ctx_ingest)
+            analysis = self.ollama.chat_json(
+                analysis_system, analysis_user, num_ctx=self.config.settings.num_ctx_ingest
+            )
         except OllamaError as e:
             raise RuntimeError(f"Ollama analysis (pass 1) failed: {e}") from e
         metrics_p1 = self.ollama.last_metrics
@@ -459,15 +605,22 @@ class Pipeline:
         extract_system = "You are a knowledge extraction agent. Output JSON only."
         analysis_block = _json.dumps(analysis, indent=2, default=str)
         extract_user = (
-            EXTRACTION_JSON_INSTRUCTION + "\n\n"
+            EXTRACTION_JSON_INSTRUCTION
+            + "\n\n"
             + (f"SCHEMA CONTEXT: This source is about {schema_hint}.\n\n" if schema_hint else "")
-            + (f"EXISTING WIKI PAGES (reference as [[wikilinks]]):\n{existing_titles}\n\n" if existing_titles else "")
+            + (
+                f"EXISTING WIKI PAGES (reference as [[wikilinks]]):\n{existing_titles}\n\n"
+                if existing_titles
+                else ""
+            )
             + f"=== YOUR PRIOR ANALYSIS ===\n{analysis_block}\n=== END ANALYSIS ===\n\n"
             + f"Source: {raw_rel}\nFrontmatter: {frontmatter}\n\n"
             + f"=== BODY ===\n{body}\n=== END BODY ===\n/no_think"
         )
         try:
-            extraction = self.ollama.chat_json(extract_system, extract_user, num_ctx=self.config.settings.num_ctx_ingest)
+            extraction = self.ollama.chat_json(
+                extract_system, extract_user, num_ctx=self.config.settings.num_ctx_ingest
+            )
         except OllamaError as e:
             raise RuntimeError(f"Ollama extraction (pass 2) failed: {e}") from e
         metrics_p2 = self.ollama.last_metrics
@@ -502,7 +655,9 @@ class Pipeline:
     ) -> Page:
         existing = self.vault.find_page(title)
         if existing:
-            return self._merge_into_existing(existing, kind, context, extraction, source_summary_link, source_ref)
+            return self._merge_into_existing(
+                existing, kind, context, extraction, source_summary_link, source_ref
+            )
         return self._create_new(kind, title, context, extraction, source_summary_link, source_ref)
 
     def _create_new(
@@ -531,11 +686,15 @@ class Pipeline:
 
         # ---- frontmatter: pipeline controls system fields ----
         page_claims = [
-            c for c in extraction.get("claims", [])
-            if isinstance(c, dict)
-            and c.get("page", "").strip().lower() == title.strip().lower()
+            c
+            for c in extraction.get("claims", [])
+            if isinstance(c, dict) and c.get("page", "").strip().lower() == title.strip().lower()
         ]
-        provenance = compute_provenance(page_claims) if page_claims else {"extracted": 0.8, "inferred": 0.2, "ambiguous": 0.0}
+        provenance = (
+            compute_provenance(page_claims)
+            if page_claims
+            else {"extracted": 0.8, "inferred": 0.2, "ambiguous": 0.0}
+        )
         confidence = aggregate_confidence(page_claims) or "medium"
         [q for q in extraction.get("open_questions", []) if isinstance(q, str)]
 
@@ -605,9 +764,9 @@ class Pipeline:
                 addendum_text,
             ]
             incoming_claims = [
-                c for c in extraction.get("claims", [])
-                if isinstance(c, dict)
-                and c.get("page", "").strip().lower() == existing.title.strip().lower()
+                c
+                for c in extraction.get("claims", [])
+                if isinstance(c, dict) and c.get("page", "").strip().lower() == existing.title.strip().lower()
             ]
             if incoming_claims:
                 lines.append("")
@@ -651,7 +810,8 @@ class Pipeline:
             "summary": extraction.get("summary") or "",
             "tags": ["source", src_cfg.type],
             "source_type": src_cfg.type,
-            "source_ref": raw_page.frontmatter.get("source_url") or str(raw_path.relative_to(self.vault.root)),
+            "source_ref": raw_page.frontmatter.get("source_url")
+            or str(raw_path.relative_to(self.vault.root)),
             "source_name": src_cfg.name,
             "read_date": raw_page.frontmatter.get("read_date") or today,
             "ingested_at": datetime.now().isoformat(timespec="seconds"),
@@ -697,7 +857,8 @@ class Pipeline:
             idx = self.vault._ensure_slug_index()
             sources_dir = self.vault.wiki / "Sources"
             self._existing_titles_cache = [
-                stem for stem, path in idx.items()
+                stem
+                for stem, path in idx.items()
                 if stem not in self._META_STEMS
                 and not stem.startswith("log-")
                 and not str(path).startswith(str(sources_dir))
@@ -751,12 +912,14 @@ class Pipeline:
     def _strip_dangling_wikilinks(self, text: str, extraction: dict) -> str:
         """Remove [[wikilinks]] that point to pages that don't exist and won't be created."""
         from .vault import WIKILINK_RE
+
         names_in_extraction = {
             item.get("name", "").strip().lower()
             for group in ("entities", "concepts", "topics")
             for item in extraction.get(group, [])
             if isinstance(item, dict) and item.get("name")
         }
+
         def _replace(m):
             target = m.group(1).strip()
             if self.vault.find_page(target):
@@ -764,6 +927,7 @@ class Pipeline:
             if target.lower() in names_in_extraction:
                 return m.group(0)
             return target
+
         return WIKILINK_RE.sub(_replace, text)
 
     @staticmethod

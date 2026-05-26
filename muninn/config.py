@@ -32,7 +32,6 @@ class SourceConfig(BaseModel):
     tool: str  # dotted path: module.path:ClassName
     options: dict[str, Any] = Field(default_factory=dict)
 
-
     @property
     def secret(self) -> str | None:
         """Resolve the secret from .env / environment."""
@@ -41,9 +40,7 @@ class SourceConfig(BaseModel):
         val = os.environ.get(self.secret_env)
         if val:
             return val
-        raise RuntimeError(
-            f"Source {self.name!r} requires {self.secret_env} — add it to .env"
-        )
+        raise RuntimeError(f"Source {self.name!r} requires {self.secret_env} — add it to .env")
 
     def load_tool(self) -> Any:
         """Import the connector class referenced by `tool:`.
@@ -55,9 +52,7 @@ class SourceConfig(BaseModel):
             raise ValueError(f"tool must be 'module:Class', got {self.tool!r}")
         module_path, class_name = self.tool.split(":", 1)
         if not module_path.startswith("muninn.sources."):
-            raise ValueError(
-                f"tool module must be under 'muninn.sources', got {module_path!r}"
-            )
+            raise ValueError(f"tool module must be under 'muninn.sources', got {module_path!r}")
         module = import_module(module_path)
         return getattr(module, class_name)
 
@@ -77,18 +72,18 @@ class Settings(BaseModel):
     ollama_model_query: str | None = None
     ollama_timeout: float = 300.0
     # Context window and body limits — tune for your hardware/model
-    num_ctx_ingest: int = 8192        # context window for ingest LLM calls
-    num_ctx_query: int = 8192         # context window for query LLM calls
-    max_body_ingest: int = 24000      # max chars of raw source body sent to LLM
-    max_body_query: int = 16000       # max chars per page body sent to query LLM
+    num_ctx_ingest: int = 8192  # context window for ingest LLM calls
+    num_ctx_query: int = 8192  # context window for query LLM calls
+    max_body_ingest: int = 24000  # max chars of raw source body sent to LLM
+    max_body_query: int = 16000  # max chars per page body sent to query LLM
     retrieval_mode: str = "adaptive"  # "hybrid" | "reranked" | "adaptive"
-    max_retrieval_pages: int = 5       # max page bodies sent to LLM per query
-    two_pass_ingest: bool = True       # chain-of-thought: analysis pass then extraction pass
+    max_retrieval_pages: int = 5  # max page bodies sent to LLM per query
+    two_pass_ingest: bool = True  # chain-of-thought: analysis pass then extraction pass
     # Memory model
     consolidation_enabled: bool = True
-    decay_rate: float = 0.95           # per-week strength multiplier (halves in ~14 weeks)
-    abstraction_threshold: int = 5     # sources count to trigger synthesis
-    archive_threshold: float = 0.1     # strength below this → lifecycle: stale
+    decay_rate: float = 0.95  # per-week strength multiplier (halves in ~14 weeks)
+    abstraction_threshold: int = 5  # sources count to trigger synthesis
+    archive_threshold: float = 0.1  # strength below this → lifecycle: stale
     log_dir: Path = Path.home() / "Library" / "Logs" / "Muninn"
     log_level: str = "WARNING"
 
@@ -115,7 +110,6 @@ class Settings(BaseModel):
     @property
     def raw_root(self) -> Path:
         return self.vault_path / "Raw" / "Sources"
-
 
 
 class Config(BaseModel):
@@ -145,8 +139,7 @@ def load_config(
     config_path = config_path or DEFAULT_CONFIG
     if not config_path.exists():
         raise FileNotFoundError(
-            f"Config not found at {config_path}. "
-            "Run `muninn init` to create it from wiki.example.yaml."
+            f"Config not found at {config_path}. Run `muninn init` to create it from wiki.example.yaml."
         )
 
     raw = yaml.safe_load(config_path.read_text())

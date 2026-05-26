@@ -66,9 +66,7 @@ class ClaudeHistorySource(Source):
 
     # ------------------------------------------------------------------
 
-    def _parse_conversation(
-        self, path: Path, mtime: datetime, min_messages: int
-    ) -> RawItem | None:
+    def _parse_conversation(self, path: Path, mtime: datetime, min_messages: int) -> RawItem | None:
         """Parse a single JSONL conversation file into a RawItem."""
         lines = path.read_text(encoding="utf-8", errors="replace").splitlines()
 
@@ -117,7 +115,7 @@ class ClaudeHistorySource(Source):
         project_name = self._project_name_from_path(project_dir_name)
         session_id = path.stem
 
-        title_suffix = (first_user_text[:60].strip() or session_id)
+        title_suffix = first_user_text[:60].strip() or session_id
         title = f"Claude: {project_name} — {title_suffix}"
 
         return RawItem(

@@ -39,9 +39,7 @@ class VectorStore:
         embed_model: str = "mxbai-embed-large",
     ) -> None:
         if not _HAS_CHROMA:
-            raise ImportError(
-                "chromadb is not installed. Run: pip install chromadb"
-            )
+            raise ImportError("chromadb is not installed. Run: pip install chromadb")
         self.persist_dir = persist_dir
         self.ollama_host = ollama_host
         self.embed_model = embed_model
@@ -93,28 +91,32 @@ class VectorStore:
                 # Content unchanged — update metadata only (no re-embedding)
                 self._collection.update(
                     ids=[page_id],
-                    metadatas=[{
-                        "title": title,
-                        "kind": kind,
-                        "schema": schema,
-                        "strength": strength,
-                        "content_hash": content_hash,
-                        "tags": ",".join(tags or []),
-                    }],
+                    metadatas=[
+                        {
+                            "title": title,
+                            "kind": kind,
+                            "schema": schema,
+                            "strength": strength,
+                            "content_hash": content_hash,
+                            "tags": ",".join(tags or []),
+                        }
+                    ],
                 )
                 return
 
         self._collection.upsert(
             ids=[page_id],
             documents=[doc_text],
-            metadatas=[{
-                "title": title,
-                "kind": kind,
-                "schema": schema,
-                "strength": strength,
-                "content_hash": content_hash,
-                "tags": ",".join(tags or []),
-            }],
+            metadatas=[
+                {
+                    "title": title,
+                    "kind": kind,
+                    "schema": schema,
+                    "strength": strength,
+                    "content_hash": content_hash,
+                    "tags": ",".join(tags or []),
+                }
+            ],
         )
 
     def delete_page(self, page_id: str) -> None:
@@ -151,15 +153,17 @@ class VectorStore:
         metas = results.get("metadatas", [[]])[0]
         dists = results.get("distances", [[]])[0]
         for page_id, meta, dist in zip(ids, metas, dists, strict=False):
-            out.append({
-                "id": page_id,
-                "title": (meta or {}).get("title", ""),
-                "kind": (meta or {}).get("kind", ""),
-                "schema": (meta or {}).get("schema", ""),
-                "strength": float((meta or {}).get("strength", 1.0)),
-                "distance": float(dist),
-                "similarity": 1.0 - float(dist),
-            })
+            out.append(
+                {
+                    "id": page_id,
+                    "title": (meta or {}).get("title", ""),
+                    "kind": (meta or {}).get("kind", ""),
+                    "schema": (meta or {}).get("schema", ""),
+                    "strength": float((meta or {}).get("strength", 1.0)),
+                    "distance": float(dist),
+                    "similarity": 1.0 - float(dist),
+                }
+            )
         return out
 
     # ---- maintenance ----
@@ -216,7 +220,7 @@ class EmbedMetrics:
     def __str__(self) -> str:
         if not self.total_texts:
             return "no embeddings yet"
-        return f"{self.texts_per_sec:.0f} texts/s ({self.total_texts} texts in {self.total_calls} calls, {self.total_ms/1000:.1f}s)"
+        return f"{self.texts_per_sec:.0f} texts/s ({self.total_texts} texts in {self.total_calls} calls, {self.total_ms / 1000:.1f}s)"
 
 
 class _OllamaEmbedFn:
@@ -228,6 +232,7 @@ class _OllamaEmbedFn:
         self._name = f"ollama-{model}"
         self.metrics = EmbedMetrics()
         import httpx
+
         self._client = httpx.Client(timeout=120.0)
 
     def name(self) -> str:
@@ -241,6 +246,7 @@ class _OllamaEmbedFn:
         if isinstance(input, str):
             input = [input]
         import time
+
         all_embeddings: list[list[float]] = []
         batch_size = 50
         for i in range(0, len(input), batch_size):

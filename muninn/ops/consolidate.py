@@ -28,6 +28,7 @@ _IMPORTANCE_RANK = {"high": 0, "medium": 1, "low": 2}
 # Public entry point
 # ---------------------------------------------------------------------------
 
+
 def run_consolidate(
     config: Config,
     *,
@@ -75,15 +76,11 @@ def run_consolidate(
         try:
             new_body = _consolidate_page(llm, page, is_synthesis=is_synthesis)
         except OllamaError as exc:
-            console.print(
-                f"  [red][{i}/{len(candidates)}] {page.title} — LLM error: {exc}[/red]"
-            )
+            console.print(f"  [red][{i}/{len(candidates)}] {page.title} — LLM error: {exc}[/red]")
             continue
 
         if not _validate_output(new_body, page):
-            console.print(
-                f"  [red][{i}/{len(candidates)}] {page.title} — invalid output, skipped[/red]"
-            )
+            console.print(f"  [red][{i}/{len(candidates)}] {page.title} — invalid output, skipped[/red]")
             continue
 
         page.body = new_body
@@ -108,6 +105,7 @@ def run_consolidate(
     if consolidated_count > 0:
         try:
             from ..vectorstore import VectorStore
+
             vs = VectorStore(
                 persist_dir=config.settings.state_dir / "chroma",
                 ollama_host=config.settings.ollama_host,
@@ -125,14 +123,14 @@ def run_consolidate(
     vault.append_cumulative_log(line)
 
     console.print(
-        f"\n[bold green]Done[/bold green]: consolidated {consolidated_count}, "
-        f"abstracted {abstracted_count}"
+        f"\n[bold green]Done[/bold green]: consolidated {consolidated_count}, abstracted {abstracted_count}"
     )
 
 
 # ---------------------------------------------------------------------------
 # Candidate selection
 # ---------------------------------------------------------------------------
+
 
 def _select_candidates(
     pages: list[Page],
@@ -178,6 +176,7 @@ def _select_candidates(
 # ---------------------------------------------------------------------------
 # Brain: pattern separation (dedup pass)
 # ---------------------------------------------------------------------------
+
 
 def _jaccard(set_a: set[str], set_b: set[str]) -> float:
     """Jaccard similarity between two sets."""
@@ -253,10 +252,7 @@ def _dedup_pass(
         found += 1
 
         if dry_run:
-            console.print(
-                f"  dedup candidate: '{page_a.title}' ↔ '{page_b.title}' "
-                f"(sim={score:.2f})"
-            )
+            console.print(f"  dedup candidate: '{page_a.title}' ↔ '{page_b.title}' (sim={score:.2f})")
             continue
 
         # Ask LLM to confirm.
@@ -272,8 +268,10 @@ def _dedup_pass(
 
         try:
             result = ollama.chat_json(
-                prompt_system, prompt_user,
-                temperature=0, num_ctx=2048,
+                prompt_system,
+                prompt_user,
+                temperature=0,
+                num_ctx=2048,
             )
         except Exception:
             # Graceful failure: skip this pair on any LLM error.
@@ -319,6 +317,7 @@ def _dedup_pass(
 # Brain: active forgetting (supersession pass)
 # ---------------------------------------------------------------------------
 
+
 def _supersession_pass(
     pages: list[Page],
     vault: Vault,
@@ -352,8 +351,7 @@ def _supersession_pass(
 
         if dry_run:
             console.print(
-                f"  forgetting candidate: '{page.title}' "
-                f"(strength={strength:.2f}, lifecycle=draft)"
+                f"  forgetting candidate: '{page.title}' (strength={strength:.2f}, lifecycle=draft)"
             )
         else:
             page.frontmatter["lifecycle"] = "stale"
@@ -429,7 +427,7 @@ def _consolidate_page(
 
     # Episodic→semantic: strip any remaining ingest markers the LLM may have kept.
     if is_synthesis:
-        new_body = re.sub(r'<!-- ingest:.*?-->\n?', '', new_body)
+        new_body = re.sub(r"<!-- ingest:.*?-->\n?", "", new_body)
 
     return new_body
 
@@ -475,6 +473,7 @@ def _validate_output(new_body: str, original: Page) -> bool:
 # Helpers
 # ---------------------------------------------------------------------------
 
+
 def _derive_importance(page: Page) -> str:
     """Compute importance tier from source count and lifecycle."""
     source_count = len(page.frontmatter.get("sources") or [])
@@ -483,4 +482,3 @@ def _derive_importance(page: Page) -> str:
     if source_count >= 2:
         return "medium"
     return "low"
-

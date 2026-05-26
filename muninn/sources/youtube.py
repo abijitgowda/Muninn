@@ -35,17 +35,14 @@ class YouTubeTranscriptSource(Source):
             from youtube_transcript_api import YouTubeTranscriptApi  # type: ignore[import-untyped]
         except ImportError:
             log.error(
-                "youtube_transcript_api is not installed. "
-                "Install it with: pip install youtube-transcript-api"
+                "youtube_transcript_api is not installed. Install it with: pip install youtube-transcript-api"
             )
             return
 
         vault = Path(self.url).expanduser()
         max_videos: int = self.options.get("max_videos", 20)
         languages: list[str] = self.options.get("languages", ["en"])
-        raw_sources: list[str] = self.options.get(
-            "raw_sources", ["edge-history", "chrome-history"]
-        )
+        raw_sources: list[str] = self.options.get("raw_sources", ["edge-history", "chrome-history"])
 
         youtube_files = self._find_youtube_raws(vault, raw_sources, since)
         yielded = 0
@@ -60,9 +57,7 @@ class YouTubeTranscriptSource(Source):
                 continue
 
             try:
-                transcript = YouTubeTranscriptApi.get_transcript(
-                    video_id, languages=languages
-                )
+                transcript = YouTubeTranscriptApi.get_transcript(video_id, languages=languages)
             except Exception:  # noqa: BLE001
                 log.debug("No transcript for %s (%s)", video_id, source_url)
                 continue

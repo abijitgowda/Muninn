@@ -112,7 +112,9 @@ def run_serve(
     app = build_app()
     cfg = load_config()
     console.print(f"[bold green]Muninn serve[/bold green]  http://{host}:{port}")
-    console.print(f"  Models — query: [cyan]{cfg.settings.model_for_query}[/cyan]  ingest: [cyan]{cfg.settings.model_for_ingest}[/cyan]")
+    console.print(
+        f"  Models — query: [cyan]{cfg.settings.model_for_query}[/cyan]  ingest: [cyan]{cfg.settings.model_for_ingest}[/cyan]"
+    )
     console.print(f"  OpenAI-compat:  http://{host}:{port}/v1/chat/completions")
     console.print(f"  Native query:   http://{host}:{port}/query")
     console.print(f"  Health:         http://{host}:{port}/health")
@@ -129,20 +131,25 @@ def run_serve(
     console.print(f"  Log: [cyan]{log_file}[/cyan]")
 
     import logging
+
     file_handler = logging.FileHandler(log_file)
     file_handler.setFormatter(logging.Formatter("%(asctime)s %(name)s %(levelname)s %(message)s"))
     logging.getLogger("muninn").addHandler(file_handler)
 
     # Pre-warm caches so first query is fast
     import time as _time
+
     t0 = _time.monotonic()
     from .query import _get_vault
     from .retrieval import _get_vectorstore
+
     vault = _get_vault(cfg)
     vault._ensure_slug_index()
     vault.all_pages()
     _get_vectorstore(vault, cfg.settings.ollama_host)
-    console.print(f"  Cache warmed: {len(vault._slug_index or {})} pages in {(_time.monotonic() - t0)*1000:.0f}ms")
+    console.print(
+        f"  Cache warmed: {len(vault._slug_index or {})} pages in {(_time.monotonic() - t0) * 1000:.0f}ms"
+    )
 
     uvicorn.run(app, host=host, port=port, reload=reload, log_level="info")
 
@@ -178,6 +185,7 @@ def build_app() -> Any:
             status_code=422,
             content={"detail": exc.errors(), "received": body_preview[:500]},
         )
+
     config = load_config()
 
     AUTH_TOKEN = os.environ.get("MUNINN_API_TOKEN")  # noqa: N806
@@ -294,15 +302,20 @@ def build_app() -> Any:
         if any(question.startswith(sig) for sig in _meta_signals):
             log.debug("skipping Copilot meta-request: %s", question[:40])
             if req.stream:
+
                 def _empty():
                     yield _sse_chunk("", req.model, finish="stop")
                     yield b"data: [DONE]\n\n"
+
                 return StreamingResponse(_empty(), media_type="text/event-stream")
             return JSONResponse(_completion_envelope("", model=req.model))
 
         log.info(
             "request: %d messages, stream=%s, question=%r, history=%d chars",
-            len(req.messages), req.stream, question[:80], len(history),
+            len(req.messages),
+            req.stream,
+            question[:80],
+            len(history),
         )
         if not question:
             raise HTTPException(status_code=400, detail="no user message provided")
@@ -312,6 +325,7 @@ def build_app() -> Any:
 
         if not req.stream:
             import time as _time
+
             t0 = _time.monotonic()
             try:
                 result = answer_query(

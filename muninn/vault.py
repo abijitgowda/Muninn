@@ -103,6 +103,7 @@ class Vault:
         if self._slug_index is not None:
             return self._slug_index
         import time as _time
+
         t0 = _time.monotonic()
         if self._slug_index is None:
             self._slug_index = {}
@@ -115,8 +116,12 @@ class Vault:
                         alias_key = str(alias).strip().lower()
                         if alias_key:
                             self._alias_index[alias_key] = md
-            log.debug("slug_index built: %d pages, %d aliases in %.0fms",
-                      len(self._slug_index), len(self._alias_index), (_time.monotonic() - t0) * 1000)
+            log.debug(
+                "slug_index built: %d pages, %d aliases in %.0fms",
+                len(self._slug_index),
+                len(self._alias_index),
+                (_time.monotonic() - t0) * 1000,
+            )
         return self._slug_index
 
     # ---- paths ----
@@ -128,8 +133,6 @@ class Vault:
     @property
     def raw_sources(self) -> Path:
         return self.root / "Raw" / "Sources"
-
-
 
     def folder_for_kind(self, kind: str) -> Path:
         return {
@@ -242,8 +245,6 @@ class Vault:
         tmp.write_text(body, encoding="utf-8")
         tmp.replace(path)
         return path
-
-
 
     def append_cumulative_log(self, line: str) -> Path:
         month = datetime.now().strftime("%Y-%m")

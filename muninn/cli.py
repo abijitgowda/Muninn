@@ -35,6 +35,7 @@ def _root(
     ),
 ) -> None:
     import logging
+
     try:
         cfg = load_config()
         level = getattr(logging, cfg.settings.log_level.upper(), logging.WARNING)
@@ -82,6 +83,7 @@ def setup_obsidian(
     import shutil
 
     from .init_op import EXAMPLE_ENV, PROJECT_ROOT
+
     wiki_yaml = PROJECT_ROOT / "wiki.yaml"
     if not wiki_yaml.exists():
         example = PROJECT_ROOT / "wiki.example.yaml"
@@ -257,7 +259,9 @@ def query(
 
 @app.command()
 def serve(
-    host: str = typer.Option("127.0.0.1", "--host", help="Bind address. Stick to 127.0.0.1 unless you set MUNINN_API_TOKEN."),
+    host: str = typer.Option(
+        "127.0.0.1", "--host", help="Bind address. Stick to 127.0.0.1 unless you set MUNINN_API_TOKEN."
+    ),
     port: int = typer.Option(19828, "--port"),
     reload: bool = typer.Option(False, "--reload", help="Auto-reload on code change (dev)."),
 ) -> None:
@@ -308,6 +312,7 @@ def status() -> None:
     # Vector store stats
     try:
         from .vectorstore import VectorStore
+
         vs = VectorStore(
             persist_dir=cfg.settings.state_dir / "chroma",
             ollama_host=cfg.settings.ollama_host,
@@ -319,9 +324,13 @@ def status() -> None:
     # Query stats
     qs = mf.query_stats()
     if qs["total_queries"]:
-        console.print(f"  Queries: [cyan]{qs['total_queries']}[/cyan] total, avg [cyan]{qs['avg_duration_s']}s[/cyan]")
+        console.print(
+            f"  Queries: [cyan]{qs['total_queries']}[/cyan] total, avg [cyan]{qs['avg_duration_s']}s[/cyan]"
+        )
 
-    console.print(f"  Models — ingest: [cyan]{cfg.settings.model_for_ingest}[/cyan]  query: [cyan]{cfg.settings.model_for_query}[/cyan]  embed: [cyan]mxbai-embed-large[/cyan]  retrieval: [cyan]{cfg.settings.retrieval_mode}[/cyan]")
+    console.print(
+        f"  Models — ingest: [cyan]{cfg.settings.model_for_ingest}[/cyan]  query: [cyan]{cfg.settings.model_for_query}[/cyan]  embed: [cyan]mxbai-embed-large[/cyan]  retrieval: [cyan]{cfg.settings.retrieval_mode}[/cyan]"
+    )
 
 
 @sources_app.command("list")

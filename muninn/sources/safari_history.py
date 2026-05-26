@@ -33,10 +33,15 @@ class SafariHistorySource(Source):
     """Read browser history from Safari's History.db."""
 
     DEFAULT_EXCLUDE_DOMAINS = {
-        "google.com", "www.google.com", "accounts.google.com",
-        "duckduckgo.com", "bing.com",
-        "localhost", "127.0.0.1",
-        "mail.google.com", "calendar.google.com",
+        "google.com",
+        "www.google.com",
+        "accounts.google.com",
+        "duckduckgo.com",
+        "bing.com",
+        "localhost",
+        "127.0.0.1",
+        "mail.google.com",
+        "calendar.google.com",
     }
 
     @property
@@ -59,8 +64,10 @@ class SafariHistorySource(Source):
                 shutil.copy2(db_path, tmp)
             except (PermissionError, FileNotFoundError) as e:
                 import logging
+
                 logging.getLogger(__name__).warning(
-                    "Cannot read Safari history: %s. Grant Full Disk Access to your terminal.", e)
+                    "Cannot read Safari history: %s. Grant Full Disk Access to your terminal.", e
+                )
                 return
             conn = sqlite3.connect(f"file:{tmp}?mode=ro", uri=True)
             try:
@@ -85,11 +92,15 @@ class SafariHistorySource(Source):
         seen: set[str] = set()
         total = len(rows)
         yielded = 0
-        http_client = httpx.Client(
-            timeout=15.0,
-            follow_redirects=True,
-            headers={"User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) Muninn/0.1.0"},
-        ) if fetch_body else None
+        http_client = (
+            httpx.Client(
+                timeout=15.0,
+                follow_redirects=True,
+                headers={"User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) Muninn/0.1.0"},
+            )
+            if fetch_body
+            else None
+        )
 
         try:
             for idx, (_, raw_url, visits, ts) in enumerate(rows, 1):
@@ -101,10 +112,19 @@ class SafariHistorySource(Source):
                 if any(host == d or host.endswith("." + d) for d in exclude):
                     continue
                 url_lower = url.lower()
-                if any(seg in url_lower for seg in (
-                    "/login", "/signin", "/authorize", "/oauth",
-                    "/sso/", "/callback", "/logout", "/signup",
-                )):
+                if any(
+                    seg in url_lower
+                    for seg in (
+                        "/login",
+                        "/signin",
+                        "/authorize",
+                        "/oauth",
+                        "/sso/",
+                        "/callback",
+                        "/logout",
+                        "/signup",
+                    )
+                ):
                     continue
 
                 visited = SAFARI_EPOCH + timedelta(seconds=ts)
@@ -144,7 +164,7 @@ class SafariHistorySource(Source):
     def _resolve_db_path(self) -> Path:
         url = self.url
         if url.startswith("file://"):
-            url = url[len("file://"):]
+            url = url[len("file://") :]
         return Path(url).expanduser()
 
     @staticmethod
@@ -162,6 +182,7 @@ class SafariHistorySource(Source):
             # Extract title from HTML
             title = ""
             import re
+
             m = re.search(r"<title[^>]*>(.*?)</title>", r.text, re.IGNORECASE | re.DOTALL)
             if m:
                 title = m.group(1).strip()[:200]

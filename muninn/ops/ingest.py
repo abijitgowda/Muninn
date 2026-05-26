@@ -33,21 +33,37 @@ def run_ingest(
         inbox_path = config.settings.vault_path / "Inbox"
         if inbox_path.exists() and not any(s.name == "vault-inbox" for s in targets):
             from ..config import SourceConfig
-            targets.append(SourceConfig(
-                name="vault-inbox", type="inbox", enabled=True,
-                url=str(inbox_path), tool="muninn.sources.inbox:InboxSource", options={},
-            ))
+
+            targets.append(
+                SourceConfig(
+                    name="vault-inbox",
+                    type="inbox",
+                    enabled=True,
+                    url=str(inbox_path),
+                    tool="muninn.sources.inbox:InboxSource",
+                    options={},
+                )
+            )
         # Always include Journal/ if the folder exists (files stay in place)
         notes_path = config.settings.vault_path / "Journal"
         if notes_path.exists() and not any(s.name == "vault-notes" for s in targets):
             from ..config import SourceConfig
-            targets.append(SourceConfig(
-                name="vault-journal", type="folder", enabled=True,
-                url=str(notes_path), tool="muninn.sources.folder:FolderSource",
-                options={"recursive": True, "max_depth": 10,
-                         "include_extensions": [".md", ".txt", ".pdf"],
-                         "subfolder_as_tag": True},
-            ))
+
+            targets.append(
+                SourceConfig(
+                    name="vault-journal",
+                    type="folder",
+                    enabled=True,
+                    url=str(notes_path),
+                    tool="muninn.sources.folder:FolderSource",
+                    options={
+                        "recursive": True,
+                        "max_depth": 10,
+                        "include_extensions": [".md", ".txt", ".pdf"],
+                        "subfolder_as_tag": True,
+                    },
+                )
+            )
     elif source_name:
         targets = [config.source(source_name)]
     if not targets:
@@ -70,6 +86,7 @@ def run_ingest(
     # Post-ingest: cross-link touched pages (not all pages — scales linearly with batch size)
     if total_touched > 0 and not dry_run:
         from .maintain import _cross_link
+
         vault = pipeline.vault
         # Only cross-link pages that were touched, plus their link targets
         all_p = vault.all_pages()

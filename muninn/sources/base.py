@@ -66,7 +66,13 @@ class Source(ABC):
             "source_name": self.name,
         }
         fm.update(item.extra_frontmatter)
-        return "---\n" + yaml.safe_dump(fm, sort_keys=False, allow_unicode=True).strip() + "\n---\n\n" + item.body.rstrip() + "\n"
+        return (
+            "---\n"
+            + yaml.safe_dump(fm, sort_keys=False, allow_unicode=True).strip()
+            + "\n---\n\n"
+            + item.body.rstrip()
+            + "\n"
+        )
 
     @property
     @abstractmethod

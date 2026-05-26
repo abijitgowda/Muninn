@@ -21,17 +21,20 @@ class OllamaError(Exception):
 @dataclass
 class LLMMetrics:
     """Performance metrics from the last Ollama call."""
+
     model: str = ""
     prompt_tokens: int = 0
     completion_tokens: int = 0
     total_duration_ms: float = 0
-    prompt_eval_rate: float = 0     # tokens/sec for prompt processing
-    eval_rate: float = 0            # tokens/sec for generation
+    prompt_eval_rate: float = 0  # tokens/sec for prompt processing
+    eval_rate: float = 0  # tokens/sec for generation
 
     def __str__(self) -> str:
         if not self.eval_rate:
             return ""
-        return f"{self.eval_rate:.1f} tok/s ({self.completion_tokens} tokens in {self.total_duration_ms:.0f}ms)"
+        return (
+            f"{self.eval_rate:.1f} tok/s ({self.completion_tokens} tokens in {self.total_duration_ms:.0f}ms)"
+        )
 
 
 class Ollama:
@@ -104,7 +107,7 @@ class Ollama:
             except httpx.HTTPError as e:
                 last_err = e
                 if attempt < retries:
-                    time.sleep(2 ** attempt)
+                    time.sleep(2**attempt)
                     continue
                 raise OllamaError(f"Ollama request failed: {e}") from e
         raise OllamaError(f"Ollama request failed after retries: {last_err}")

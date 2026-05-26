@@ -55,6 +55,7 @@ def _get_manifest(config: Config) -> Manifest:
 @dataclass
 class QueryContext:
     """Carries all dependencies through the query call chain. No globals."""
+
     config: Config
     vault: Vault
     ollama: Ollama
@@ -66,8 +67,8 @@ class QueryContext:
 class QueryResult:
     question: str
     answer: str
-    cited_pages: list[str] = field(default_factory=list)        # rel-paths of pages read
-    history_context: str = ""                                    # prior conversation, if any
+    cited_pages: list[str] = field(default_factory=list)  # rel-paths of pages read
+    history_context: str = ""  # prior conversation, if any
 
 
 def _resolve_question(
@@ -141,7 +142,11 @@ def answer_query(
             log.info("follow-up expanded: %r → %r", question[:60], retrieval_question[:60])
 
         mode = config.settings.retrieval_mode
-        idx_text = (ctx.vault.wiki / "index.md").read_text(encoding="utf-8") if (ctx.vault.wiki / "index.md").exists() else ""
+        idx_text = (
+            (ctx.vault.wiki / "index.md").read_text(encoding="utf-8")
+            if (ctx.vault.wiki / "index.md").exists()
+            else ""
+        )
 
         t_ret = _time.monotonic()
         if quick:
@@ -150,18 +155,29 @@ def answer_query(
             context_chunks = _adaptive_retrieve(retrieval_question, ctx, idx_text, deep=deep)
         else:
             context_chunks = _gather_context(
-                retrieval_question, ctx, deep=deep, idx_text=idx_text,
+                retrieval_question,
+                ctx,
+                deep=deep,
+                idx_text=idx_text,
                 use_vectors=mode in ("hybrid", "reranked"),
                 use_rerank=mode == "reranked",
             )
         retrieval_ms = (_time.monotonic() - t_ret) * 1000
         cited = [name for name, _ in context_chunks]
         context_chars = sum(len(body) for _, body in context_chunks)
-        log.info("retrieval: mode=%s, %d pages, %d chars, %.0fms", mode, len(cited), context_chars, retrieval_ms)
+        log.info(
+            "retrieval: mode=%s, %d pages, %d chars, %.0fms", mode, len(cited), context_chars, retrieval_ms
+        )
 
         system = ctx.prompts.system_for_query()
         max_chars = config.settings.num_ctx_query * 3
-        user = _build_user_prompt(question, context_chunks, history_context=history_context, max_body=config.settings.max_body_query, max_total_chars=max_chars)
+        user = _build_user_prompt(
+            question,
+            context_chunks,
+            history_context=history_context,
+            max_body=config.settings.max_body_query,
+            max_total_chars=max_chars,
+        )
         prompt_chars = len(system) + len(user)
 
         t_llm = _time.monotonic()
@@ -170,9 +186,13 @@ def answer_query(
         metrics = ctx.ollama.last_metrics
         log.info(
             "query: %r — retrieval=%.0fms, llm=%.0fms (%.0f tok/s), prompt=%d chars, answer=%d chars, cited=%d pages",
-            question[:60], retrieval_ms, llm_ms,
+            question[:60],
+            retrieval_ms,
+            llm_ms,
             metrics.eval_rate if metrics else 0,
-            prompt_chars, len(answer), len(cited),
+            prompt_chars,
+            len(answer),
+            len(cited),
         )
 
     # Brain: strengthen memories that were accessed (cited in this answer)
@@ -229,7 +249,11 @@ def stream_query(
     retrieval_question = _expand_followup(question, history_context)
 
     mode = config.settings.retrieval_mode
-    idx_text = (ctx.vault.wiki / "index.md").read_text(encoding="utf-8") if (ctx.vault.wiki / "index.md").exists() else ""
+    idx_text = (
+        (ctx.vault.wiki / "index.md").read_text(encoding="utf-8")
+        if (ctx.vault.wiki / "index.md").exists()
+        else ""
+    )
 
     t_ret = _time.monotonic()
     if quick:
@@ -238,7 +262,10 @@ def stream_query(
         context_chunks = _adaptive_retrieve(retrieval_question, ctx, idx_text, deep=deep)
     else:
         context_chunks = _gather_context(
-            retrieval_question, ctx, deep=deep, idx_text=idx_text,
+            retrieval_question,
+            ctx,
+            deep=deep,
+            idx_text=idx_text,
             use_vectors=mode in ("hybrid", "reranked"),
             use_rerank=mode == "reranked",
         )
@@ -246,22 +273,39 @@ def stream_query(
     cited = [name for name, _ in context_chunks]
     system = ctx.prompts.system_for_query()
     max_chars = config.settings.num_ctx_query * 3
-    user = _build_user_prompt(question, context_chunks, history_context=history_context, max_body=config.settings.max_body_query, max_total_chars=max_chars)
+    user = _build_user_prompt(
+        question,
+        context_chunks,
+        history_context=history_context,
+        max_body=config.settings.max_body_query,
+        max_total_chars=max_chars,
+    )
     prompt_chars = len(system) + len(user)
-    log.info("stream: retrieval=%.0fms, %d pages, prompt=%d chars (sys=%d + user=%d), num_ctx=%d",
-             retrieval_ms, len(cited), prompt_chars, len(system), len(user), config.settings.num_ctx_query)
+    log.info(
+        "stream: retrieval=%.0fms, %d pages, prompt=%d chars (sys=%d + user=%d), num_ctx=%d",
+        retrieval_ms,
+        len(cited),
+        prompt_chars,
+        len(system),
+        len(user),
+        config.settings.num_ctx_query,
+    )
 
     def _generate() -> Iterator[str]:
         t0 = _time.monotonic()
         try:
-            yield from ctx.ollama.chat_stream(system, user, temperature=0.2, num_ctx=config.settings.num_ctx_query)
+            yield from ctx.ollama.chat_stream(
+                system, user, temperature=0.2, num_ctx=config.settings.num_ctx_query
+            )
         finally:
             llm_ms = (_time.monotonic() - t0) * 1000
             log.info("stream: llm=%.1fs, question=%r", llm_ms / 1000, question[:60])
             try:
                 manifest.log_query(
-                    question=question, cited_pages=cited,
-                    eval_rate=0, duration_ms=retrieval_ms + llm_ms,
+                    question=question,
+                    cited_pages=cited,
+                    eval_rate=0,
+                    duration_ms=retrieval_ms + llm_ms,
                     retrieval_mode=mode,
                 )
             except Exception:  # noqa: BLE001
@@ -305,7 +349,11 @@ def run_query(
             timeout=config.settings.ollama_timeout,
         ) as ollama:
             ctx = QueryContext(config=config, vault=vault, ollama=ollama, prompts=prompts, manifest=manifest)
-            idx_text = (vault.wiki / "index.md").read_text(encoding="utf-8") if (vault.wiki / "index.md").exists() else ""
+            idx_text = (
+                (vault.wiki / "index.md").read_text(encoding="utf-8")
+                if (vault.wiki / "index.md").exists()
+                else ""
+            )
             context_chunks = _gather_context(resolved, ctx, deep=deep, idx_text=idx_text)
         console.print("[bold]Cited pages[/bold]")
         for name, _ in context_chunks:
@@ -319,10 +367,12 @@ def run_query(
         return
 
     if json_out:
-        print(json.dumps(
-            {"question": result.question, "answer": result.answer, "context": result.cited_pages},
-            indent=2,
-        ))
+        print(
+            json.dumps(
+                {"question": result.question, "answer": result.answer, "context": result.cited_pages},
+                indent=2,
+            )
+        )
         return
     console.print(result.answer)
 
@@ -345,4 +395,3 @@ def _track_access(vault: Vault, cited_paths: list[str]) -> None:
             vault.write_page(page)
         except Exception:  # noqa: BLE001
             pass
-

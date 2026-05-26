@@ -110,17 +110,21 @@ class BrowserHistorySource(Source):
         seen_canonical: set[str] = set()
         total = len(rows)
         yielded = 0
-        http_client = httpx.Client(
-            timeout=15.0,
-            follow_redirects=True,
-            headers={
-                "User-Agent": (
-                    "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) "
-                    "AppleWebKit/537.36 (KHTML, like Gecko) "
-                    "Muninn/0.1.0"
-                )
-            },
-        ) if fetch_body else None
+        http_client = (
+            httpx.Client(
+                timeout=15.0,
+                follow_redirects=True,
+                headers={
+                    "User-Agent": (
+                        "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) "
+                        "AppleWebKit/537.36 (KHTML, like Gecko) "
+                        "Muninn/0.1.0"
+                    )
+                },
+            )
+            if fetch_body
+            else None
+        )
         try:
             for idx, (_, raw_url, title, visits, ts) in enumerate(rows, 1):
                 url = _strip_tracking(raw_url)
@@ -132,11 +136,24 @@ class BrowserHistorySource(Source):
                     continue
                 # Skip URLs that never produce useful content (auth, login, OAuth)
                 url_lower = url.lower()
-                if any(seg in url_lower for seg in (
-                    "/login", "/signin", "/sign-in", "/authorize", "/oauth",
-                    "/sso/", "/saml/", "/callback", "/logout", "/signup",
-                    "client_id=", "redirect_uri=", "response_type=",
-                )):
+                if any(
+                    seg in url_lower
+                    for seg in (
+                        "/login",
+                        "/signin",
+                        "/sign-in",
+                        "/authorize",
+                        "/oauth",
+                        "/sso/",
+                        "/saml/",
+                        "/callback",
+                        "/logout",
+                        "/signup",
+                        "client_id=",
+                        "redirect_uri=",
+                        "response_type=",
+                    )
+                ):
                     continue
                 visited = chrome_ts_to_dt(ts)
                 body = ""
@@ -181,7 +198,7 @@ class BrowserHistorySource(Source):
     def _resolve_db_path(self) -> Path:
         url = self.url
         if url.startswith("file://"):
-            url = url[len("file://"):]
+            url = url[len("file://") :]
         return Path(url).expanduser()
 
     def _fetch_clean_body(self, url: str, client: httpx.Client | None = None) -> str:
@@ -191,13 +208,16 @@ class BrowserHistorySource(Source):
                 r = client.get(url)
             else:
                 c = httpx.Client(timeout=15.0, follow_redirects=True)
-                r = c.get(url, headers={
-                    "User-Agent": (
-                        "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) "
-                        "AppleWebKit/537.36 (KHTML, like Gecko) "
-                        "Muninn/0.1.0"
-                    )
-                })
+                r = c.get(
+                    url,
+                    headers={
+                        "User-Agent": (
+                            "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) "
+                            "AppleWebKit/537.36 (KHTML, like Gecko) "
+                            "Muninn/0.1.0"
+                        )
+                    },
+                )
                 c.close()
             if r.status_code != 200 or "text/html" not in (r.headers.get("content-type") or ""):
                 return ""

@@ -31,10 +31,15 @@ class FirefoxHistorySource(Source):
     """Read browser history from Firefox's places.sqlite."""
 
     DEFAULT_EXCLUDE_DOMAINS = {
-        "google.com", "www.google.com", "accounts.google.com",
-        "duckduckgo.com", "bing.com",
-        "localhost", "127.0.0.1",
-        "mail.google.com", "calendar.google.com",
+        "google.com",
+        "www.google.com",
+        "accounts.google.com",
+        "duckduckgo.com",
+        "bing.com",
+        "localhost",
+        "127.0.0.1",
+        "mail.google.com",
+        "calendar.google.com",
     }
 
     @property
@@ -80,11 +85,15 @@ class FirefoxHistorySource(Source):
         seen: set[str] = set()
         total = len(rows)
         yielded = 0
-        http_client = httpx.Client(
-            timeout=15.0,
-            follow_redirects=True,
-            headers={"User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) Muninn/0.1.0"},
-        ) if fetch_body else None
+        http_client = (
+            httpx.Client(
+                timeout=15.0,
+                follow_redirects=True,
+                headers={"User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) Muninn/0.1.0"},
+            )
+            if fetch_body
+            else None
+        )
 
         try:
             for idx, (_, raw_url, title, visits, ts_us) in enumerate(rows, 1):
@@ -96,10 +105,19 @@ class FirefoxHistorySource(Source):
                 if any(host == d or host.endswith("." + d) for d in exclude):
                     continue
                 url_lower = url.lower()
-                if any(seg in url_lower for seg in (
-                    "/login", "/signin", "/authorize", "/oauth",
-                    "/sso/", "/callback", "/logout", "/signup",
-                )):
+                if any(
+                    seg in url_lower
+                    for seg in (
+                        "/login",
+                        "/signin",
+                        "/authorize",
+                        "/oauth",
+                        "/sso/",
+                        "/callback",
+                        "/logout",
+                        "/signup",
+                    )
+                ):
                     continue
 
                 visited = datetime.fromtimestamp(ts_us / 1_000_000)
@@ -138,7 +156,7 @@ class FirefoxHistorySource(Source):
     def _resolve_db_path(self) -> Path | None:
         url = self.url
         if url.startswith("file://"):
-            url = url[len("file://"):]
+            url = url[len("file://") :]
         path = Path(url).expanduser()
 
         # Direct path to places.sqlite

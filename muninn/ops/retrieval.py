@@ -25,8 +25,31 @@ log = logging.getLogger(__name__)
 # Follow-up detection
 # ---------------------------------------------------------------------------
 
-_FOLLOWUP_PRONOUNS = {"it", "its", "they", "their", "them", "this", "that", "these", "those", "he", "his", "she", "her"}
-_FOLLOWUP_PHRASES = {"what about", "how about", "tell me more", "and", "also", "what else", "anything else", "more on"}
+_FOLLOWUP_PRONOUNS = {
+    "it",
+    "its",
+    "they",
+    "their",
+    "them",
+    "this",
+    "that",
+    "these",
+    "those",
+    "he",
+    "his",
+    "she",
+    "her",
+}
+_FOLLOWUP_PHRASES = {
+    "what about",
+    "how about",
+    "tell me more",
+    "and",
+    "also",
+    "what else",
+    "anything else",
+    "more on",
+}
 
 
 def _is_followup(question: str) -> bool:
@@ -66,7 +89,20 @@ def _expand_followup(question: str, history_context: str) -> str:
             break
 
     # Then: capitalized words as fallback (named entities)
-    _noise = {"USER", "ASSISTANT", "SYSTEM", "Sources", "Confidence", "Based", "The", "This", "That", "From", "See", "Wiki"}
+    _noise = {
+        "USER",
+        "ASSISTANT",
+        "SYSTEM",
+        "Sources",
+        "Confidence",
+        "Based",
+        "The",
+        "This",
+        "That",
+        "From",
+        "See",
+        "Wiki",
+    }
     for w in history_words:
         clean = w.strip(".,!?:;\"'()[]{}").strip()
         if len(clean) >= 3 and clean[0].isupper() and clean not in _noise and clean.lower() not in seen:
@@ -102,11 +138,30 @@ def _detect_query_type(question: str) -> str:
     Maps to the brain's hippocampal (episodic) vs cortical (semantic) retrieval pathways.
     """
     q = question.lower()
-    episodic_signals = ["recently", "lately", "today", "yesterday", "last week", "this week",
-                        "this month", "been reading", "been learning", "i read", "i saw",
-                        "i watched", "i wrote", "i noted", "what did i", "what have i",
-                        "browsing history", "reading history", "my history",
-                        "my journal", "my notes", "journal entry"]
+    episodic_signals = [
+        "recently",
+        "lately",
+        "today",
+        "yesterday",
+        "last week",
+        "this week",
+        "this month",
+        "been reading",
+        "been learning",
+        "i read",
+        "i saw",
+        "i watched",
+        "i wrote",
+        "i noted",
+        "what did i",
+        "what have i",
+        "browsing history",
+        "reading history",
+        "my history",
+        "my journal",
+        "my notes",
+        "journal entry",
+    ]
     if any(sig in q for sig in episodic_signals):
         return "episodic"
     semantic_signals = ["what is", "how does", "explain", "define", "compare", "difference between"]
@@ -125,14 +180,17 @@ def _detect_source_filter(question: str, ctx: QueryContext) -> list[str] | None:
 
     # Include built-in sources that are auto-added at ingest time
     from ..config import SourceConfig
+
     all_sources = list(ctx.config.sources)
     vault = ctx.config.settings.vault_path
     if (vault / "Journal").exists():
-        all_sources.append(SourceConfig(
-            name="vault-journal", type="folder", tool="muninn.sources.folder:FolderSource"))
+        all_sources.append(
+            SourceConfig(name="vault-journal", type="folder", tool="muninn.sources.folder:FolderSource")
+        )
     if (vault / "Inbox").exists():
-        all_sources.append(SourceConfig(
-            name="vault-inbox", type="inbox", tool="muninn.sources.inbox:InboxSource"))
+        all_sources.append(
+            SourceConfig(name="vault-inbox", type="inbox", tool="muninn.sources.inbox:InboxSource")
+        )
 
     source_scores: dict[str, int] = {}
     for s in all_sources:
@@ -220,7 +278,9 @@ def _hippocampal_recall(
     for title, count in relevant:
         page = ctx.vault.find_page(title)
         if page:
-            catalog_lines.append(f"- [[{page.title}]] ({page.kind}, {count}x): {page.frontmatter.get('summary', '')[:80]}")
+            catalog_lines.append(
+                f"- [[{page.title}]] ({page.kind}, {count}x): {page.frontmatter.get('summary', '')[:80]}"
+            )
             if len(pages_to_include) < n_bodies:
                 pages_to_include.append(page)
 
@@ -285,7 +345,11 @@ def _adaptive_retrieve(
     if query_type == "episodic":
         episodic = _hippocampal_recall(question, ctx, idx_text, deep=deep)
         if episodic:
-            log.debug("hippocampal_recall returned %d chunks in %.0fms", len(episodic), (_time.monotonic() - t0) * 1000)
+            log.debug(
+                "hippocampal_recall returned %d chunks in %.0fms",
+                len(episodic),
+                (_time.monotonic() - t0) * 1000,
+            )
             return episodic
 
     all_pages = [p for p in ctx.vault.all_pages() if p.kind not in STRUCTURAL_KINDS]
@@ -293,7 +357,6 @@ def _adaptive_retrieve(
 
     if not all_pages:
         return [("Wiki/index.md", idx_text)]
-
 
     # ---- Phase 1: Temporal cascade ----
     if query_type == "episodic":
@@ -312,14 +375,21 @@ def _adaptive_retrieve(
 
         t_kw = _time.monotonic()
         keyword_ranked = _keyword_rank(question, pages)
-        log.debug("keyword_rank: %d results in %.0fms, top=%s",
-                  len(keyword_ranked), (_time.monotonic() - t_kw) * 1000,
-                  [p.title[:30] for p in keyword_ranked[:3]])
+        log.debug(
+            "keyword_rank: %d results in %.0fms, top=%s",
+            len(keyword_ranked),
+            (_time.monotonic() - t_kw) * 1000,
+            [p.title[:30] for p in keyword_ranked[:3]],
+        )
 
         if keyword_ranked:
             keyword_candidates = keyword_ranked
-            log.info("adaptive: keyword (%s, window=%s) — %d matches",
-                     query_type, max_days or "all", len(keyword_ranked))
+            log.info(
+                "adaptive: keyword (%s, window=%s) — %d matches",
+                query_type,
+                max_days or "all",
+                len(keyword_ranked),
+            )
             break
 
     # ---- Phase 2: Always run vector search and fuse via RRF ----
@@ -329,8 +399,12 @@ def _adaptive_retrieve(
 
     if keyword_candidates and vector_ranked:
         candidates = _rrf(keyword_candidates, vector_ranked, k=60)
-        log.info("adaptive: hybrid fusion — %d keyword + %d vector → %d fused",
-                 len(keyword_candidates), len(vector_ranked), len(candidates))
+        log.info(
+            "adaptive: hybrid fusion — %d keyword + %d vector → %d fused",
+            len(keyword_candidates),
+            len(vector_ranked),
+            len(candidates),
+        )
     elif vector_ranked:
         candidates = vector_ranked
     else:
@@ -357,8 +431,7 @@ def _adaptive_retrieve(
     n_spread = max(max_pages // 3, 1)
     final = _spread_activation(final, ctx, n_extra=n_spread)
     final = final[:max_pages]
-    log.debug("spread_activation: %.0fms, final=%d pages",
-              (_time.monotonic() - t_spread) * 1000, len(final))
+    log.debug("spread_activation: %.0fms, final=%d pages", (_time.monotonic() - t_spread) * 1000, len(final))
 
     log.debug("adaptive_retrieve total: %.0fms", (_time.monotonic() - t0) * 1000)
 
@@ -389,6 +462,7 @@ def _adaptive_retrieve(
 # Spreading activation
 # ---------------------------------------------------------------------------
 
+
 def _spread_activation(
     seeds: list[Page], ctx: QueryContext, n_extra: int = 5, max_hops: int = 2
 ) -> list[Page]:
@@ -409,7 +483,7 @@ def _spread_activation(
 
     frontier = [(p, 1.0) for p in seeds]
     for hop in range(max_hops):
-        decay = 0.5 ** hop
+        decay = 0.5**hop
         next_frontier: list[tuple[Page, float]] = []
 
         for page, energy in frontier:
@@ -434,7 +508,9 @@ def _spread_activation(
             if ctx.manifest:
                 try:
                     for rel in ctx.manifest.get_relationships(page.title):
-                        related = rel["target"] if rel["source"].lower() == page.title.lower() else rel["source"]
+                        related = (
+                            rel["target"] if rel["source"].lower() == page.title.lower() else rel["source"]
+                        )
                         rl = related.lower()
                         if rl not in page_cache:
                             found = ctx.vault.find_page(related)
@@ -457,8 +533,9 @@ def _spread_activation(
         [(title, score) for title, score in activation.items() if title not in seed_titles],
         key=lambda x: -x[1],
     )
-    log.debug("activation network: %d nodes, top=%s",
-              len(ranked), [(t[:20], f"{s:.2f}") for t, s in ranked[:5]])
+    log.debug(
+        "activation network: %d nodes, top=%s", len(ranked), [(t[:20], f"{s:.2f}") for t, s in ranked[:5]]
+    )
 
     result = list(seeds)
     for title, _ in ranked[:n_extra]:
@@ -472,6 +549,7 @@ def _spread_activation(
 # ---------------------------------------------------------------------------
 # Gather context (non-adaptive path)
 # ---------------------------------------------------------------------------
+
 
 def _gather_context(
     question: str,
@@ -505,7 +583,7 @@ def _gather_context(
         fused = keyword_ranked
 
     max_pages = ctx.config.settings.max_retrieval_pages
-    candidates = fused[:max_pages * 2]
+    candidates = fused[: max_pages * 2]
 
     if not candidates:
         return [("Wiki/index.md", idx_text)]
@@ -556,11 +634,13 @@ def _keyword_rank(question: str, pages: list[Page]) -> list[Page]:
 
     scored: list[tuple[float, Page]] = []
     for p in pages:
-        meta = " ".join([
-            str(p.frontmatter.get("title", "")),
-            str(p.frontmatter.get("summary", "")),
-            " ".join(p.frontmatter.get("tags") or []),
-        ]).lower()
+        meta = " ".join(
+            [
+                str(p.frontmatter.get("title", "")),
+                str(p.frontmatter.get("summary", "")),
+                " ".join(p.frontmatter.get("tags") or []),
+            ]
+        ).lower()
         meta_hits = sum(1 for w in q_words if w in meta)
         body_hits = sum(1 for w in q_words if w in p.body.lower())
         score = meta_hits * 5.0 + body_hits
@@ -604,6 +684,7 @@ def _get_vectorstore(vault: Vault, ollama_host: str) -> Any:
         return _vectorstore_cache[key]
     try:
         from ..vectorstore import VectorStore
+
         vs = VectorStore(
             persist_dir=vault.root / ".muninn" / "chroma",
             ollama_host=ollama_host,
@@ -627,9 +708,7 @@ def _vector_rank(
     return []
 
 
-def _vector_rank_chroma(
-    question: str, pages: list[Page], vs: Any
-) -> list[Page]:
+def _vector_rank_chroma(question: str, pages: list[Page], vs: Any) -> list[Page]:
     """Query ChromaDB — pre-computed vectors, only 1 embedding call for the question."""
     try:
         results = vs.query(question, n_results=min(30, len(pages)))
@@ -645,10 +724,10 @@ def _vector_rank_chroma(
         return []
 
 
-
 # ---------------------------------------------------------------------------
 # Step 3: Reciprocal Rank Fusion
 # ---------------------------------------------------------------------------
+
 
 def _rrf(keyword: list[Page], vector: list[Page], k: int = 60) -> list[Page]:
     scores: dict[str, float] = {}
@@ -671,6 +750,7 @@ def _rrf(keyword: list[Page], vector: list[Page], k: int = 60) -> list[Page]:
 # ---------------------------------------------------------------------------
 # Step 4: LLM rerank
 # ---------------------------------------------------------------------------
+
 
 def _llm_rerank(
     question: str,
@@ -713,6 +793,7 @@ def _llm_rerank(
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
+
 
 def _rel(path: Path, root: Path) -> str:
     try:

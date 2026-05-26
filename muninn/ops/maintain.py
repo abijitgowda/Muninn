@@ -35,6 +35,7 @@ def run_maintain(
 
     from ..ollama import Ollama
     from .consolidate import _dedup_pass, _supersession_pass
+
     llm = Ollama(
         host=config.settings.ollama_host,
         model=config.settings.model_for_ingest,
@@ -56,6 +57,7 @@ def run_maintain(
     if not dry_run:
         try:
             from ..vectorstore import VectorStore
+
             vs = VectorStore(
                 persist_dir=config.settings.state_dir / "chroma",
                 ollama_host=config.settings.ollama_host,
@@ -91,6 +93,7 @@ def run_reindex(config: Config, *, dry_run: bool, console: Console) -> None:
 
 
 # ---- cross-linker ----
+
 
 def _decay_pass(pages, vault: Vault, config: Config, *, dry_run: bool, console: Console) -> tuple[int, int]:
     """Weekly memory decay: reduce strength, archive weak memories."""
@@ -139,17 +142,21 @@ def _decay_pass(pages, vault: Vault, config: Config, *, dry_run: bool, console: 
 
 # ---- cross-linker ----
 
+
 def _cross_link(pages, vault: Vault, *, dry_run: bool, console: Console) -> int:
     _skip_titles = {"overview", "index", "wiki index", "wiki log"}
     titles = sorted(
-        ((p.title, p) for p in pages
-         if p.kind not in ("redirect", "doc", "source-summary")
-         and p.title.lower() not in _skip_titles),
+        (
+            (p.title, p)
+            for p in pages
+            if p.kind not in ("redirect", "doc", "source-summary") and p.title.lower() not in _skip_titles
+        ),
         key=lambda t: -len(t[0]),
     )
     title_patterns = {
         title: re.compile(rf"(?<![\w/\[]){re.escape(title)}(?!\w)", re.IGNORECASE)
-        for title, _ in titles if len(title) >= 4
+        for title, _ in titles
+        if len(title) >= 4
     }
     inserted = 0
     for p in pages:
@@ -161,13 +168,13 @@ def _cross_link(pages, vault: Vault, *, dry_run: bool, console: Console) -> int:
         new_body = body
 
         skip_ranges: list[tuple[int, int]] = []
-        for m in re.finditer(r'```.*?```|`[^`]+`', body, re.DOTALL):
+        for m in re.finditer(r"```.*?```|`[^`]+`", body, re.DOTALL):
             skip_ranges.append((m.start(), m.end()))
-        for m in re.finditer(r'\[[^\]]*\]\([^)]+\)', body):
+        for m in re.finditer(r"\[[^\]]*\]\([^)]+\)", body):
             skip_ranges.append((m.start(), m.end()))
-        for m in re.finditer(r'\[\[[^\]]+\]\]', body):
+        for m in re.finditer(r"\[\[[^\]]+\]\]", body):
             skip_ranges.append((m.start(), m.end()))
-        for m in re.finditer(r'https?://\S+', body):
+        for m in re.finditer(r"https?://\S+", body):
             skip_ranges.append((m.start(), m.end()))
 
         def _in_protected(pos: int, _ranges=skip_ranges) -> bool:
@@ -183,7 +190,7 @@ def _cross_link(pages, vault: Vault, *, dry_run: bool, console: Console) -> int:
                 continue
             m = pattern.search(new_body)
             if m and not _in_protected(m.start()):
-                new_body = new_body[:m.start()] + f"[[{title}]]" + new_body[m.end():]
+                new_body = new_body[: m.start()] + f"[[{title}]]" + new_body[m.end() :]
                 already_linked_lower.add(title.lower())
                 inserted += 1
         if new_body != body and not dry_run:
@@ -193,6 +200,7 @@ def _cross_link(pages, vault: Vault, *, dry_run: bool, console: Console) -> int:
 
 
 # ---- index regen ----
+
 
 def _rebuild_index(pages, vault: Vault, *, dry_run: bool, console: Console) -> None:
     idx = vault.wiki / "index.md"
@@ -229,6 +237,7 @@ def _replace_block(text: str, name: str, new_block: str) -> str:
 
 
 # ---- overview regen ----
+
 
 def _rebuild_overview(pages, vault: Vault, *, dry_run: bool, console: Console) -> None:
     incoming: Counter[str] = Counter()
@@ -267,7 +276,8 @@ def _rebuild_overview(pages, vault: Vault, *, dry_run: bool, console: Console) -
                 break
             if in_section and line.strip().startswith("- "):
                 import re as _re2
-                clean = _re2.sub(r'\s*\*?\(from\s+.*?\)\*?', '', line.strip())
+
+                clean = _re2.sub(r"\s*\*?\(from\s+.*?\)\*?", "", line.strip())
                 if clean and clean != "- ":
                     open_qs.append(f"{clean}  *(from [[{p.title}]])*")
 
@@ -295,8 +305,9 @@ def _rebuild_overview(pages, vault: Vault, *, dry_run: bool, console: Console) -
     page = Page(path=vault.wiki / "overview.md", frontmatter=fm, body=body)
     if not dry_run:
         vault.write_page(page)
-    console.print(f"  overview rebuilt (top hubs: {len(top_hubs)}, recent: {len(recent)}, stale: {len(stale)})")
-
+    console.print(
+        f"  overview rebuilt (top hubs: {len(top_hubs)}, recent: {len(recent)}, stale: {len(stale)})"
+    )
 
 
 def _reindex(vault: Vault, config: Config, *, dry_run: bool, console: Console) -> None:
@@ -305,9 +316,11 @@ def _reindex(vault: Vault, config: Config, *, dry_run: bool, console: Console) -
 
     from ..manifest import Manifest
 
-    count = Manifest(config.settings.manifest_path)._conn.execute(
-        "SELECT COUNT(*) FROM items WHERE status IN ('processed', 'skipped')"
-    ).fetchone()[0]
+    count = (
+        Manifest(config.settings.manifest_path)
+        ._conn.execute("SELECT COUNT(*) FROM items WHERE status IN ('processed', 'skipped')")
+        .fetchone()[0]
+    )
 
     if dry_run:
         console.print(f"  [yellow]dry-run: would archive wiki and re-queue {count} items[/yellow]")
@@ -321,13 +334,12 @@ def _reindex(vault: Vault, config: Config, *, dry_run: bool, console: Console) -
     console.print(f"  [green]archived Wiki/ → .muninn/archives/{ts}/[/green]")
 
     manifest = Manifest(config.settings.manifest_path)
-    manifest._conn.execute(
-        "UPDATE items SET status = 'pending' WHERE status IN ('processed', 'skipped')"
-    )
+    manifest._conn.execute("UPDATE items SET status = 'pending' WHERE status IN ('processed', 'skipped')")
     manifest._conn.commit()
     console.print(f"  [green]re-queued {count} items[/green]")
 
     from .ingest import run_ingest
+
     run_ingest(
         config,
         source_name=None,
@@ -387,17 +399,19 @@ def _refresh_pages(pages, vault: Vault, config: Config, *, dry_run: bool, consol
 
         # 4. Fix broken wikilinks (nested, inside URLs, empty, dangling)
         body = p.body
-        body = _re.sub(r'\[\[\s*\]\]', '', body)
-        body = _re.sub(r'(https?://[^\s]*?)\[\[([^\]]+)\]\]', lambda m: m.group(1) + m.group(2), body)
-        body = _re.sub(r'(\[\[[^\]]*?)\[\[([^\]]+)\]\]', lambda m: m.group(1) + m.group(2), body)
+        body = _re.sub(r"\[\[\s*\]\]", "", body)
+        body = _re.sub(r"(https?://[^\s]*?)\[\[([^\]]+)\]\]", lambda m: m.group(1) + m.group(2), body)
+        body = _re.sub(r"(\[\[[^\]]*?)\[\[([^\]]+)\]\]", lambda m: m.group(1) + m.group(2), body)
         from ..vault import WIKILINK_RE as _WL_RE
+
         def _strip_dangling(m):
             target = m.group(1).strip()
             if not target:
-                return ''
+                return ""
             if target.lower() in all_titles:
                 return m.group(0)
             return m.group(2) if m.group(2) else target
+
         body = _WL_RE.sub(_strip_dangling, body)
         if body != p.body:
             p.body = body
@@ -420,18 +434,21 @@ def _refresh_pages(pages, vault: Vault, config: Config, *, dry_run: bool, consol
     # 7. Clean dangling wikilinks from ALL pages (run after index rebuild)
     if not dry_run:
         from ..vault import WIKILINK_RE as _WL_RE2
+
         structural_fixed = 0
         for md in vault.wiki.rglob("*.md"):
             text = md.read_text(encoding="utf-8")
             original = text
-            text = _re.sub(r'\[\[\s*\]\]', '', text)
+            text = _re.sub(r"\[\[\s*\]\]", "", text)
+
             def _strip_d(m):
                 target = m.group(1).strip()
                 if not target:
-                    return ''
+                    return ""
                 if target.lower() in all_titles:
                     return m.group(0)
                 return m.group(2) if m.group(2) else target
+
             text = _WL_RE2.sub(_strip_d, text)
             if text != original:
                 md.write_text(text, encoding="utf-8")
@@ -443,6 +460,7 @@ def _refresh_pages(pages, vault: Vault, config: Config, *, dry_run: bool, consol
     if not dry_run:
         try:
             from ..vectorstore import VectorStore
+
             vs = VectorStore(
                 persist_dir=config.settings.state_dir / "chroma",
                 ollama_host=config.settings.ollama_host,
@@ -475,7 +493,9 @@ def _plasticity_pass(
     """Brain plasticity: split overgrown pages, spawn cluster abstractions, reparent misclassified pages."""
     from ..vault import STRUCTURAL_KINDS
 
-    knowledge = [p for p in pages if p.kind not in STRUCTURAL_KINDS and p.frontmatter.get("lifecycle") != "pinned"]
+    knowledge = [
+        p for p in pages if p.kind not in STRUCTURAL_KINDS and p.frontmatter.get("lifecycle") != "pinned"
+    ]
     stats = {"splits": 0, "clusters": 0, "reparents": 0, "total": 0}
     new_pages: list = []
     moved_pages: list[tuple] = []  # (old_path, new_page)
@@ -485,7 +505,9 @@ def _plasticity_pass(
         if not _should_split(page):
             continue
         if dry_run:
-            console.print(f"  plasticity/split: {page.title} ({len(page.body.split())} words, {len(_content_sections(page.body))} sections)")
+            console.print(
+                f"  plasticity/split: {page.title} ({len(page.body.split())} words, {len(_content_sections(page.body))} sections)"
+            )
             stats["splits"] += 1
             continue
         sub_pages = _split_page(page, vault, llm)
@@ -499,14 +521,18 @@ def _plasticity_pass(
     for cluster_pages, shared_links in clusters[:3]:
         titles = [p.title for p in cluster_pages]
         if dry_run:
-            console.print(f"  plasticity/cluster: [{', '.join(titles[:4])}] ({len(shared_links)} shared links)")
+            console.print(
+                f"  plasticity/cluster: [{', '.join(titles[:4])}] ({len(shared_links)} shared links)"
+            )
             stats["clusters"] += 1
             continue
         new_page = _spawn_cluster(cluster_pages, shared_links, vault, llm)
         if new_page:
             stats["clusters"] += 1
             new_pages.append(new_page)
-            console.print(f"  plasticity/cluster: spawned [[{new_page.title}]] from {len(cluster_pages)} pages")
+            console.print(
+                f"  plasticity/cluster: spawned [[{new_page.title}]] from {len(cluster_pages)} pages"
+            )
 
     # ---- 3. Reparent misclassified pages ----
     for page in knowledge:
@@ -530,7 +556,9 @@ def _plasticity_pass(
         _sync_plasticity(new_pages, moved_pages, vault, config, console)
 
     if stats["total"]:
-        console.print(f"  plasticity: {stats['splits']} splits, {stats['clusters']} clusters, {stats['reparents']} reparents")
+        console.print(
+            f"  plasticity: {stats['splits']} splits, {stats['clusters']} clusters, {stats['reparents']} reparents"
+        )
     return stats
 
 
@@ -560,6 +588,7 @@ def _sync_plasticity(
 
 
 # ---- Split ----
+
 
 def _content_sections(body: str) -> list[tuple[str, str]]:
     """Extract (heading, content) pairs for ## sections, skipping meta sections."""
@@ -650,6 +679,7 @@ def _split_page(page, vault: Vault, llm) -> list:
 
 # ---- Cluster abstraction ----
 
+
 def _detect_clusters(pages: list, vault: Vault) -> list[tuple[list, set[str]]]:
     """Find groups of 3+ pages that share >50% of outgoing wikilinks."""
     from ..vault import WIKILINK_RE
@@ -658,7 +688,9 @@ def _detect_clusters(pages: list, vault: Vault) -> list[tuple[list, set[str]]]:
     page_map: dict[str, any] = {}
     for p in pages:
         links = set(WIKILINK_RE.findall(p.body))
-        link_titles = {m[0].strip().lower() for m in WIKILINK_RE.finditer(p.body) if m} if not links else set()
+        link_titles = (
+            {m[0].strip().lower() for m in WIKILINK_RE.finditer(p.body) if m} if not links else set()
+        )
         # Re-extract properly
         link_titles = {m.group(1).strip().lower() for m in WIKILINK_RE.finditer(p.body)}
         if len(link_titles) >= 3:
@@ -678,7 +710,7 @@ def _detect_clusters(pages: list, vault: Vault) -> list[tuple[list, set[str]]]:
             continue
         cluster = [t1]
         shared = link_sets[t1].copy()
-        for t2 in titles[i + 1:]:
+        for t2 in titles[i + 1 :]:
             if t2 in used:
                 continue
             overlap = link_sets[t1] & link_sets[t2]
@@ -790,4 +822,3 @@ def _reparent_page(page, new_kind: str, vault: Vault) -> None:
     shutil.move(str(page.path), str(new_path))
     page.path = new_path
     vault.write_page(page)
-

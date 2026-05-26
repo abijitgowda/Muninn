@@ -58,7 +58,11 @@ def run_lint(
     # 2. Broken wikilinks
     for p in pages:
         for link in outgoing[p.path]:
-            if link.lower() not in titles_by_lower and not link.startswith("Raw/") and not link.startswith("Wiki/"):
+            if (
+                link.lower() not in titles_by_lower
+                and not link.startswith("Raw/")
+                and not link.startswith("Wiki/")
+            ):
                 # Check if it's a path-style link to an existing file
                 if not (vault.root / (link + ".md")).exists() and not (vault.root / link).exists():
                     findings["broken_wikilinks"].append(f"{_rel(p.path, vault)} → [[{link}]]")
@@ -76,7 +80,9 @@ def run_lint(
             continue
         wc = len(p.body.split())
         if wc > 200 and len(outgoing[p.path]) < 2:
-            findings["sparse_links"].append(f"{_rel(p.path, vault)} ({wc} words, {len(outgoing[p.path])} links)")
+            findings["sparse_links"].append(
+                f"{_rel(p.path, vault)} ({wc} words, {len(outgoing[p.path])} links)"
+            )
 
     # 5. Stale pages
     for p in pages:

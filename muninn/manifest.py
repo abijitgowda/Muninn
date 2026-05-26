@@ -112,9 +112,7 @@ class Manifest:
     # ---- public API (same interface as before) ----
 
     def cursor(self, source_name: str) -> datetime | None:
-        row = self._conn.execute(
-            "SELECT cursor FROM sources WHERE name = ?", (source_name,)
-        ).fetchone()
+        row = self._conn.execute("SELECT cursor FROM sources WHERE name = ?", (source_name,)).fetchone()
         if not row or not row[0]:
             return None
         return datetime.fromisoformat(row[0])
@@ -199,9 +197,13 @@ class Manifest:
         total_duration_ms: float | None = None,
     ) -> None:
         self.update_item(
-            source_name, item_id,
-            status="processed", pages_touched=pages_touched, error=None,
-            eval_rate=eval_rate, total_duration_ms=total_duration_ms,
+            source_name,
+            item_id,
+            status="processed",
+            pages_touched=pages_touched,
+            error=None,
+            eval_rate=eval_rate,
+            total_duration_ms=total_duration_ms,
         )
 
     def mark_failed(self, source_name: str, item_id: str, error: str) -> None:
@@ -320,7 +322,14 @@ class Manifest:
         self._conn.execute(
             "INSERT INTO query_log (question, cited_pages, eval_rate, duration_ms, retrieval_mode, created_at) "
             "VALUES (?, ?, ?, ?, ?, ?)",
-            (question, json.dumps(cited_pages), round(eval_rate, 1) if eval_rate else None, round(duration_ms), retrieval_mode, now),
+            (
+                question,
+                json.dumps(cited_pages),
+                round(eval_rate, 1) if eval_rate else None,
+                round(duration_ms),
+                retrieval_mode,
+                now,
+            ),
         )
         self._commit()
 
@@ -337,9 +346,7 @@ class Manifest:
     def is_near_duplicate(self, body: str, source_name: str, item_id: str) -> bool:
         """Check if content is a near-duplicate of an already-ingested item."""
         h = hashlib.sha256(body.strip()[:500].encode()).hexdigest()[:32]
-        existing = self._conn.execute(
-            "SELECT item_id FROM content_hashes WHERE hash = ?", (h,)
-        ).fetchone()
+        existing = self._conn.execute("SELECT item_id FROM content_hashes WHERE hash = ?", (h,)).fetchone()
         if existing:
             return True
         self._conn.execute(
@@ -373,8 +380,12 @@ class Manifest:
         ).fetchall()
         return [
             {
-                "source": r[0], "target": r[1], "type": r[2],
-                "confidence": r[3], "valid_from": r[4], "valid_to": r[5],
+                "source": r[0],
+                "target": r[1],
+                "type": r[2],
+                "confidence": r[3],
+                "valid_from": r[4],
+                "valid_to": r[5],
             }
             for r in rows
         ]
@@ -392,4 +403,3 @@ class _BatchContext:
         self._mf._batch_depth -= 1
         if self._mf._batch_depth == 0:
             self._mf._conn.commit()
-

@@ -65,12 +65,8 @@ class FolderSource(Source):
             log.warning("FolderSource %s: path %s is not a directory", self.name, root)
             return
 
-        include_exts = _parse_ext_list(
-            self.options.get("include_extensions", _DEFAULT_INCLUDE)
-        )
-        skip_exts = _parse_ext_list(
-            self.options.get("skip_extensions", _DEFAULT_SKIP)
-        )
+        include_exts = _parse_ext_list(self.options.get("include_extensions", _DEFAULT_INCLUDE))
+        skip_exts = _parse_ext_list(self.options.get("skip_extensions", _DEFAULT_SKIP))
         max_depth: int = int(self.options.get("max_depth", _DEFAULT_MAX_DEPTH))
         include_fns = self.options.get("include_filenames")
         if isinstance(include_fns, list):
@@ -112,9 +108,7 @@ class FolderSource(Source):
             if entry.is_dir():
                 if entry.name.lower() in self._exclude_paths:
                     continue
-                yield from self._walk(
-                    root, entry, since, include_exts, skip_exts, max_depth, depth + 1
-                )
+                yield from self._walk(root, entry, since, include_exts, skip_exts, max_depth, depth + 1)
                 continue
 
             if not entry.is_file():
@@ -229,10 +223,7 @@ class FolderSource(Source):
         try:
             import docx  # type: ignore[import-untyped]
         except ImportError:
-            return (
-                f"# {f.stem}\n\n"
-                "*(DOCX extraction unavailable; install python-docx: `uv add python-docx`)*"
-            )
+            return f"# {f.stem}\n\n*(DOCX extraction unavailable; install python-docx: `uv add python-docx`)*"
         try:
             doc = docx.Document(str(f))
             return "\n\n".join(p.text for p in doc.paragraphs)
@@ -243,10 +234,7 @@ class FolderSource(Source):
     def _extract_doc(f: Path) -> str:
         textutil = shutil.which("textutil")
         if not textutil:
-            return (
-                f"# {f.stem}\n\n"
-                "*(DOC extraction unavailable; textutil not found — expected on macOS)*"
-            )
+            return f"# {f.stem}\n\n*(DOC extraction unavailable; textutil not found — expected on macOS)*"
         try:
             out = subprocess.run(
                 [textutil, "-convert", "txt", "-stdout", str(f)],
@@ -263,10 +251,7 @@ class FolderSource(Source):
         try:
             import openpyxl  # type: ignore[import-untyped]
         except ImportError:
-            return (
-                f"# {f.stem}\n\n"
-                "*(XLSX extraction unavailable; install openpyxl: `uv add openpyxl`)*"
-            )
+            return f"# {f.stem}\n\n*(XLSX extraction unavailable; install openpyxl: `uv add openpyxl`)*"
         try:
             wb = openpyxl.load_workbook(str(f), read_only=True, data_only=True)
             parts: list[str] = []

@@ -50,8 +50,7 @@ class MarketSource(Source):
     def fetch(self, since: datetime | None) -> Iterable[RawItem]:
         if not _HAS_DDGS:
             raise RuntimeError(
-                f"{self.name}: duckduckgo_search (ddgs) is not installed — "
-                "run: pip install ddgs"
+                f"{self.name}: duckduckgo_search (ddgs) is not installed — run: pip install ddgs"
             )
 
         tickers = self._read_watchlist()
@@ -92,7 +91,9 @@ class MarketSource(Source):
             except Exception:  # noqa: BLE001
                 log.warning(
                     "%s: search failed for %s — skipping",
-                    self.name, ticker_label, exc_info=True,
+                    self.name,
+                    ticker_label,
+                    exc_info=True,
                 )
 
     def _read_watchlist(self) -> list[str]:
@@ -104,9 +105,7 @@ class MarketSource(Source):
             return [t.strip().upper() for t in raw.split(",") if t.strip()]
         return []
 
-    def _search_and_extract(
-        self, ticker: str, query: str
-    ) -> Iterable[RawItem]:
+    def _search_and_extract(self, ticker: str, query: str) -> Iterable[RawItem]:
         max_results = int(self.options.get("max_results_per_ticker", 3))
         results = DDGS().text(query, max_results=max_results + 3)
         yielded = 0

@@ -63,28 +63,28 @@ class XSource(Source):
     # ------------------------------------------------------------------
 
     def fetch(self, since: datetime | None) -> Iterable[RawItem]:
-        interaction_types: list[str] = self.options.get(
-            "interaction_types", ["timeline"]
-        )
+        interaction_types: list[str] = self.options.get("interaction_types", ["timeline"])
 
         auth, auth_mode = self._build_auth()
         log.info("%s: using %s auth", self.name, auth_mode)
 
-        oauth1_only = {"liked"}           # needs OAuth 1.0a (bearer won't work)
-        oauth2_only = {"bookmarks"}       # needs OAuth 2.0 PKCE (neither bearer nor 1.0a works)
+        oauth1_only = {"liked"}  # needs OAuth 1.0a (bearer won't work)
+        oauth2_only = {"bookmarks"}  # needs OAuth 2.0 PKCE (neither bearer nor 1.0a works)
         with httpx.Client(base_url=API_BASE, auth=auth, timeout=30.0) as client:
             for itype in interaction_types:
                 if itype in oauth2_only:
                     log.warning(
                         "%s: '%s' requires OAuth 2.0 PKCE — not supported yet. Skipping.",
-                        self.name, itype,
+                        self.name,
+                        itype,
                     )
                     continue
                 if itype in oauth1_only and auth_mode == "bearer":
                     log.warning(
                         "%s: '%s' requires OAuth 1.0a — skipping (only bearer token configured). "
                         "Set X_API_KEY etc in .env.",
-                        self.name, itype,
+                        self.name,
+                        itype,
                     )
                     continue
                 yield from self._fetch_for_type(client, itype, since)
@@ -100,12 +100,15 @@ class XSource(Source):
             return _OAuth1Auth(api_key, api_secret, access_token, access_token_secret), "oauth1"
 
         if self.secret:
+
             class _BearerAuth(httpx.Auth):
                 def __init__(self, token: str):
                     self.token = token
+
                 def auth_flow(self, request):
                     request.headers["Authorization"] = f"Bearer {self.token}"
                     yield request
+
             return _BearerAuth(self.secret), "bearer"
 
         raise RuntimeError(
@@ -164,25 +167,20 @@ class XSource(Source):
         elif interaction_type == "liked":
             user_id = self.options.get("user_id")
             if not user_id:
-                raise RuntimeError(
-                    f"{self.name}: 'user_id' option is required for "
-                    f"interaction_type 'liked'"
-                )
+                raise RuntimeError(f"{self.name}: 'user_id' option is required for interaction_type 'liked'")
             endpoint = f"/users/{user_id}/liked_tweets"
 
         # ---- replies -------------------------------------------------
         elif interaction_type == "replies":
             handle = self.options.get("handle")
             if not handle:
-                raise RuntimeError(
-                    f"{self.name}: 'handle' option is required for "
-                    f"interaction_type 'replies'"
-                )
+                raise RuntimeError(f"{self.name}: 'handle' option is required for interaction_type 'replies'")
             endpoint = "/tweets/search/recent"
             params["query"] = f"from:{handle} is:reply"
 
             if since:
                 from datetime import timedelta
+
                 earliest = datetime.now(since.tzinfo) - timedelta(days=6)
                 effective = max(since, earliest)
                 params["start_time"] = effective.strftime("%Y-%m-%dT%H:%M:%SZ")
@@ -192,16 +190,13 @@ class XSource(Source):
             user_id = self.options.get("user_id")
             if not user_id:
                 raise RuntimeError(
-                    f"{self.name}: 'user_id' option is required for "
-                    f"interaction_type 'bookmarks'"
+                    f"{self.name}: 'user_id' option is required for interaction_type 'bookmarks'"
                 )
             endpoint = f"/users/{user_id}/bookmarks"
             # bookmarks endpoint doesn't support start_time filtering
 
         else:
-            raise RuntimeError(
-                f"{self.name}: unknown interaction_type '{interaction_type}'"
-            )
+            raise RuntimeError(f"{self.name}: unknown interaction_type '{interaction_type}'")
 
         for item in self._paginate(client, endpoint, params):
             item.extra_frontmatter["interaction_type"] = interaction_type
@@ -216,19 +211,16 @@ class XSource(Source):
         """
         path = self.url
         if path.startswith(API_BASE):
-            path = path[len(API_BASE):]
+            path = path[len(API_BASE) :]
         m = _USER_ID_RE.search(path)
         if m:
             return m.group(1)
         # Legacy fallback: treat the whole resolved path as the endpoint.
         raise RuntimeError(
-            f"{self.name}: cannot extract user_id from URL '{self.url}'. "
-            f"Set 'user_id' in options explicitly."
+            f"{self.name}: cannot extract user_id from URL '{self.url}'. Set 'user_id' in options explicitly."
         )
 
-    def _paginate(
-        self, client: httpx.Client, endpoint: str, params: dict[str, Any]
-    ) -> Iterable[RawItem]:
+    def _paginate(self, client: httpx.Client, endpoint: str, params: dict[str, Any]) -> Iterable[RawItem]:
         next_token: str | None = None
         users_seen: dict[str, dict[str, Any]] = {}
 
@@ -249,9 +241,7 @@ class XSource(Source):
             if not next_token:
                 break
 
-    def _post_to_item(
-        self, post: dict[str, Any], users: dict[str, dict[str, Any]]
-    ) -> RawItem:
+    def _post_to_item(self, post: dict[str, Any], users: dict[str, dict[str, Any]]) -> RawItem:
         author_id = post.get("author_id", "")
         author = users.get(author_id, {})
         handle = author.get("username", author_id)
@@ -279,9 +269,7 @@ class XSource(Source):
                 "author_name": name,
                 "conversation_id": post.get("conversation_id"),
                 "in_reply_to": post.get("in_reply_to_user_id"),
-                "referenced_posts": [
-                    {"type": r["type"], "id": r["id"]} for r in refs
-                ],
+                "referenced_posts": [{"type": r["type"], "id": r["id"]} for r in refs],
                 "urls": urls,
                 "hashtags": hashtags,
                 "mentions": mentions,
@@ -298,6 +286,7 @@ def post_permalink(handle: str, post_id: str) -> str:
 # OAuth 1.0a — inline, no external deps
 # ---------------------------------------------------------------------------
 
+
 def _pct(s: str) -> str:
     return urllib.parse.quote(str(s), safe="")
 
@@ -305,8 +294,9 @@ def _pct(s: str) -> str:
 class _OAuth1Auth(httpx.Auth):
     """httpx-compatible OAuth 1.0a HMAC-SHA1 signer."""
 
-    def __init__(self, consumer_key: str, consumer_secret: str,
-                 access_token: str, access_token_secret: str) -> None:
+    def __init__(
+        self, consumer_key: str, consumer_secret: str, access_token: str, access_token_secret: str
+    ) -> None:
         self.consumer_key = consumer_key
         self.consumer_secret = consumer_secret
         self.access_token = access_token
@@ -326,9 +316,7 @@ class _OAuth1Auth(httpx.Auth):
             all_params.update(dict(request.url.params))
         all_params.update(oauth_params)
 
-        sorted_params = "&".join(
-            f"{_pct(k)}={_pct(v)}" for k, v in sorted(all_params.items())
-        )
+        sorted_params = "&".join(f"{_pct(k)}={_pct(v)}" for k, v in sorted(all_params.items()))
         base_url = str(request.url).split("?")[0]
         base_string = f"{request.method.upper()}&{_pct(base_url)}&{_pct(sorted_params)}"
         signing_key = f"{_pct(self.consumer_secret)}&{_pct(self.access_token_secret)}"
@@ -338,8 +326,6 @@ class _OAuth1Auth(httpx.Auth):
         ).decode()
         oauth_params["oauth_signature"] = signature
 
-        auth_header = "OAuth " + ", ".join(
-            f'{_pct(k)}="{_pct(v)}"' for k, v in sorted(oauth_params.items())
-        )
+        auth_header = "OAuth " + ", ".join(f'{_pct(k)}="{_pct(v)}"' for k, v in sorted(oauth_params.items()))
         request.headers["Authorization"] = auth_header
         yield request
