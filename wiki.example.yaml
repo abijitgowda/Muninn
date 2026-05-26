@@ -25,7 +25,7 @@ settings:
 
   # Context window — how many tokens the model processes per call.
   # Larger = more content per call but slower. Match to your model's capacity.
-  num_ctx_ingest: 32768                  # context window for ingest calls
+  num_ctx_ingest: 65536                   # context window for ingest calls
   num_ctx_query: 32768                   # context window for query calls
 
   # Body limits — max chars of source/page body sent to the LLM.

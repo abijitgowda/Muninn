@@ -79,8 +79,8 @@ class Settings(BaseModel):
     # Ollama-specific
     ollama_host: str = "http://localhost:11434"
     # Context window and body limits — tune for your hardware/model
-    num_ctx_ingest: int = 8192  # context window for ingest LLM calls
-    num_ctx_query: int = 8192  # context window for query LLM calls
+    num_ctx_ingest: int = 65536  # context window for ingest LLM calls
+    num_ctx_query: int = 32768  # context window for query LLM calls
     max_body_ingest: int = 24000  # max chars of raw source body sent to LLM
     max_body_query: int = 16000  # max chars per page body sent to query LLM
     retrieval_mode: str = "adaptive"  # "hybrid" | "reranked" | "adaptive"
@@ -194,8 +194,8 @@ def load_config(
         llm_model_query=raw_settings.get("llm_model_query") or raw_settings.get("ollama_model_query"),
         llm_timeout=float(raw_settings.get("llm_timeout") or raw_settings.get("ollama_timeout", 300)),
         ollama_host=raw_settings.get("ollama_host", "http://localhost:11434"),
-        num_ctx_ingest=int(raw_settings.get("num_ctx_ingest", 8192)),
-        num_ctx_query=int(raw_settings.get("num_ctx_query", 8192)),
+        num_ctx_ingest=int(raw_settings.get("num_ctx_ingest", 65536)),
+        num_ctx_query=int(raw_settings.get("num_ctx_query", 32768)),
         max_body_ingest=int(raw_settings.get("max_body_ingest", 24000)),
         max_body_query=int(raw_settings.get("max_body_query", 16000)),
         retrieval_mode=raw_settings.get("retrieval_mode", "keyword"),
