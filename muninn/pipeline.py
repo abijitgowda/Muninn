@@ -159,22 +159,23 @@ _STOP_WORDS = frozenset(
 _LINK_RE = re.compile(r"\[([^\]]*)\]\([^)]+\)")
 
 
-def _is_garbage_body(body: str, frontmatter: dict | None = None) -> bool:
+_LOCAL_SOURCE_TYPES = frozenset({"folder", "inbox", "claude-history"})
+
+
+def _is_garbage_body(body: str, frontmatter: dict | None = None, *, source_type: str = "") -> bool:
     """Layered content quality detection.
 
-    Layer 1: URL patterns (auth, login, OAuth)
-    Layer 2: Extraction failure (empty, too short)
-    Layer 2b: JS-disabled / gated content signals
-    Layer 3: Information density (TTR, word count, long tokens)
-    Layer 4: Stop-word ratio (nav menus vs prose)
-    Layer 5: Sentence coherence (avg sentence length)
-    Layer 6: Link density (navigation vs content)
+    Layers 1, 3-6 target web-fetched content (nav menus, login pages, boilerplate).
+    Local file sources (folder, inbox, claude-history) skip those layers — only
+    truly empty/broken bodies are rejected.
     """
+    is_local = source_type in _LOCAL_SOURCE_TYPES
+
     fm = frontmatter or {}
     url = str(fm.get("source_url", "")).lower()
 
-    # ---- Layer 1: URL patterns ----
-    if any(
+    # ---- Layer 1: URL patterns (web only) ----
+    if not is_local and any(
         seg in url
         for seg in (
             "/login",
@@ -198,8 +199,13 @@ def _is_garbage_body(body: str, frontmatter: dict | None = None) -> bool:
     text = body.strip()
     if not text or text.startswith("# ") and "No body extracted" in text:
         return True
+    # Local files: only reject if truly empty (< 20 chars)
+    if is_local:
+        return len(text) < 20
     if len(text) < 400:
         return True
+
+    # ---- Layers 3-6: web content heuristics (skipped for local files) ----
 
     # ---- Layer 3: Information density ----
     sample = text[:2000]
@@ -218,14 +224,12 @@ def _is_garbage_body(body: str, frontmatter: dict | None = None) -> bool:
         return True
 
     # ---- Layer 4: Stop-word ratio (Google Panda / CETR) ----
-    # Real prose: 40-60% stop words. Nav/menus: <15%.
     stop_count = sum(1 for w in words if w in _STOP_WORDS)
     stop_ratio = stop_count / len(words)
     if stop_ratio < 0.15 and len(text) < 2000:
         return True
 
     # ---- Layer 5: Sentence coherence ----
-    # Real articles: avg 10-25 words/sentence. Menu fragments: <4.
     sentences = [s.strip() for s in re.split(r"[.!?]+", sample) if s.strip()]
     if len(sentences) >= 3:
         avg_sentence_len = sum(len(s.split()) for s in sentences) / len(sentences)
@@ -233,7 +237,6 @@ def _is_garbage_body(body: str, frontmatter: dict | None = None) -> bool:
             return True
 
     # ---- Layer 6: Link density (Boilerpipe / Dragnet) ----
-    # If >50% of text is markdown link anchors, it's navigation.
     link_text_chars = sum(len(m.group(1)) for m in _LINK_RE.finditer(text))
     if len(text) > 0 and link_text_chars / len(text) > 0.5:
         return True
@@ -332,7 +335,7 @@ class Pipeline:
             raw_path = self.vault.write_raw(src_cfg.name, item.id, md, date=item.timestamp)
             rel = raw_path.relative_to(self.vault.root)
             raw_page = self.vault.read_page(raw_path)
-            if _is_garbage_body(raw_page.body, raw_page.frontmatter):
+            if _is_garbage_body(raw_page.body, raw_page.frontmatter, source_type=src_cfg.type):
                 self.manifest.add_item(src_cfg.name, item.id, str(rel))
                 self.manifest.update_item(
                     src_cfg.name, item.id, status="skipped", error="garbage body detected"
@@ -406,7 +409,7 @@ class Pipeline:
         raw_page = self.vault.read_page(raw_path)
 
         # ---- Pre-filter: skip garbage bodies ----
-        if _is_garbage_body(raw_page.body, raw_page.frontmatter):
+        if _is_garbage_body(raw_page.body, raw_page.frontmatter, source_type=src_cfg.type):
             self.manifest.update_item(src_cfg.name, item_id, status="skipped", error="garbage body detected")
             return []
 

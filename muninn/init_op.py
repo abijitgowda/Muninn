@@ -39,7 +39,9 @@ def run_init(install_launchd: bool, console: Console) -> None:
         _embed_names = {"mxbai-embed", "nomic-embed", "all-minilm", "snowflake-arctic-embed", "embed"}
         chat_models = [m for m in models if not any(e in m.lower() for e in _embed_names)]
         console.print(f"\n  Available models: {', '.join(chat_models[:10])}")
-        default_model = "gemma4:e4b" if "gemma4:e4b" in chat_models else (chat_models[0] if chat_models else "gemma4:e4b")
+        default_model = (
+            "gemma4:e4b" if "gemma4:e4b" in chat_models else (chat_models[0] if chat_models else "gemma4:e4b")
+        )
         ingest_model = typer.prompt("Ingest model", default=default_model)
         query_model = typer.prompt("Query model", default=ingest_model)
     else:
@@ -263,7 +265,7 @@ def _write_wiki_yaml(
             "llm_model_query": query_model,
             "llm_timeout": 900,
             "log_level": "WARNING",
-            "num_ctx_ingest": 32768,
+            "num_ctx_ingest": 65536,
             "num_ctx_query": 32768,
             "max_body_ingest": 48000,
             "max_body_query": 8000,
