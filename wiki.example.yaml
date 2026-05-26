@@ -30,7 +30,7 @@ settings:
 
   # Body limits — max chars of source/page body sent to the LLM.
   # Controls how much of each document the model sees.
-  max_body_ingest: 48000                 # chars of raw source body per ingest call
+  max_body_ingest: 36000                 # chars of raw source body per ingest call
   max_body_query: 8000                   # chars per page body in query context
 
   # Retrieval — how the query pipeline finds relevant pages.
