@@ -1,0 +1,73 @@
+name: CI
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install ruff
+      - run: ruff check muninn/
+      - run: ruff format --check muninn/
+
+  test:
+    runs-on: ubuntu-latest
+    needs: lint
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+      - run: pip install -e ".[all,dev]"
+      - run: pytest tests/ -v --tb=short
+
+  import-check:
+    runs-on: ubuntu-latest
+    needs: lint
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+      - run: pip install -e ".[all]"
+      - name: Verify all modules import
+        run: |
+          python -c "
+          from muninn.cli import app
+          from muninn.config import load_config
+          from muninn.pipeline import Pipeline
+          from muninn.vault import Vault
+          from muninn.manifest import Manifest
+          from muninn.vectorstore import VectorStore
+          from muninn.ollama import Ollama
+          from muninn.prompts import PromptLoader
+          from muninn.provenance import compute_provenance
+          from muninn.ops.query import answer_query
+          from muninn.ops.retrieval import _adaptive_retrieve
+          from muninn.ops.maintain import run_maintain
+          from muninn.ops.consolidate import run_consolidate
+          from muninn.ops.serve import run_serve
+          from muninn.ops.lint import run_lint
+          from muninn.ops.ingest import run_ingest
+          from muninn.sources.base import Source, RawItem
+          from muninn.sources.browser_history import BrowserHistorySource
+          from muninn.sources.firefox_history import FirefoxHistorySource
+          from muninn.sources.safari_history import SafariHistorySource
+          from muninn.sources.x import XSource
+          from muninn.sources.folder import FolderSource
+          from muninn.sources.url import UrlSource
+          from muninn.sources.inbox import InboxSource
+          from muninn.sources.youtube import YouTubeTranscriptSource
+          from muninn.sources.claude_history import ClaudeHistorySource
+          print('All imports OK')
+          "
