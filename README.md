@@ -76,12 +76,32 @@ Muninn ships with `.agents/skills/` that give Claude Code, Cursor, or any agent 
 
 For manual work: `muninn/sources/` for connectors, `wiki.yaml` for configuration, `DESIGN.md` for architecture.
 
+## CLI
+
+| Command | What it does |
+|---|---|
+| `muninn init` | Interactive setup — vault, sources, models, LaunchAgents |
+| `muninn setup-obsidian [path]` | Configure Obsidian + Copilot plugin for a vault |
+| `muninn ingest --all` | Ingest all enabled sources |
+| `muninn ingest --source NAME` | Ingest one source |
+| `muninn ingest-url <URL>` | One-off URL ingestion |
+| `muninn query "..."` | Ask the wiki from the terminal |
+| `muninn serve` | Start HTTP API for Obsidian Copilot |
+| `muninn consolidate` | Nightly: LLM rewrite of recently-touched pages |
+| `muninn maintain` | Weekly: decay, dedup, plasticity, cross-link, rebuild index |
+| `muninn refresh` | Fix structure in place — no LLM |
+| `muninn reindex` | Archive wiki, re-queue all items, re-ingest |
+| `muninn vectorstore-sync` | Rebuild ChromaDB from wiki pages |
+| `muninn lint` | Health checks |
+| `muninn status` | Per-source stats, vector store count, query metrics |
+| `muninn sources list` | Show configured sources |
+
 ## Requirements
 
 - Python 3.11+
 - [Ollama](https://ollama.com) with any model (default: `gemma4:e4b`)
 - macOS or Linux (Docker supported)
-- [Obsidian](https://obsidian.md) (optional — the wiki is plain markdown)
+- [Obsidian](https://obsidian.md) with [Copilot](https://github.com/logancyang/obsidian-copilot) plugin for viewing and chat
 
 
 ```
