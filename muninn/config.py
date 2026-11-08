@@ -13,7 +13,7 @@ from typing import TYPE_CHECKING, Any
 
 import yaml
 from dotenv import load_dotenv
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 
 if TYPE_CHECKING:
     from muninn.llm.base import LLMProvider
@@ -22,6 +22,9 @@ PROJECT_ROOT = Path(__file__).resolve().parents[1]
 DEFAULT_VAULT = PROJECT_ROOT / "Muninn-Vault"
 DEFAULT_CONFIG = PROJECT_ROOT / "wiki.yaml"
 DEFAULT_ENV = PROJECT_ROOT / ".env"
+
+# Providers that can serve /v1/embeddings for the vector store.
+LOCAL_EMBED_PROVIDERS = ("ollama", "lmstudio")
 
 
 class SourceConfig(BaseModel):
@@ -64,12 +67,15 @@ class Settings(BaseModel):
     """Global settings from wiki.yaml `settings:` block.
 
     Model selection follows a fallback chain:
-      ingest pipeline →  ollama_model_ingest  →  ollama_model
-      query / serve   →  ollama_model_query   →  ollama_model
+      ingest pipeline →  llm_model_ingest  →  llm_model
+      query / serve   →  llm_model_query   →  llm_model
+
+    Local providers each have their own host: `ollama` uses `ollama_host`,
+    `lmstudio` uses `lmstudio_host`.
     """
 
     vault_path: Path
-    # LLM provider: ollama (default), openai, anthropic, openrouter, custom
+    # LLM provider: ollama (default), lmstudio, openai, anthropic, openrouter, custom
     llm_provider: str = "ollama"
     llm_provider_ingest: str | None = None
     llm_provider_query: str | None = None
@@ -79,8 +85,13 @@ class Settings(BaseModel):
     llm_model_ingest: str | None = None
     llm_model_query: str | None = None
     llm_timeout: float = 300.0
-    # Ollama-specific
+    # Local provider endpoints
     ollama_host: str = "http://localhost:11434"
+    lmstudio_host: str = "http://localhost:1234"
+    # Embeddings (vector store). Provider defaults to llm_provider when that is
+    # local (ollama / lmstudio), otherwise ollama.
+    embed_provider: str | None = None
+    embed_model: str = "qwen3-embedding:8b"
     # Context window and body limits — tune for your hardware/model
     num_ctx_ingest: int = 65536  # context window for ingest LLM calls
     num_ctx_query: int = 32768  # context window for query LLM calls
@@ -96,6 +107,13 @@ class Settings(BaseModel):
     archive_threshold: float = 0.1  # strength below this → lifecycle: stale
     log_dir: Path = Path.home() / "Library" / "Logs" / "Muninn"
     log_level: str = "WARNING"
+
+    @field_validator("embed_provider")
+    @classmethod
+    def _check_embed_provider(cls, v: str | None) -> str | None:
+        if v is not None and v.lower() not in LOCAL_EMBED_PROVIDERS:
+            raise ValueError(f"embed_provider must be one of {LOCAL_EMBED_PROVIDERS}, got {v!r}")
+        return v
 
     @property
     def model_for_ingest(self) -> str:
@@ -113,6 +131,36 @@ class Settings(BaseModel):
     def provider_for_query(self) -> str:
         return self.llm_provider_query or self.llm_provider
 
+    def host_for(self, provider: str) -> str:
+        """Endpoint for a provider: ollama → ollama_host, lmstudio → lmstudio_host."""
+        p = provider.lower()
+        if p == "ollama":
+            return self.ollama_host
+        if p == "lmstudio":
+            return self.lmstudio_host
+        return self.llm_base_url or ""
+
+    @property
+    def embed_provider_resolved(self) -> str:
+        if self.embed_provider:
+            return self.embed_provider.lower()
+        p = self.llm_provider.lower()
+        return p if p in LOCAL_EMBED_PROVIDERS else "ollama"
+
+    @property
+    def embed_host(self) -> str:
+        return self.host_for(self.embed_provider_resolved)
+
+    def unreachable_message(self, operation: str = "query") -> str:
+        """Human-readable 'LLM is down' message naming the provider and host in use."""
+        provider = self.provider_for_ingest if operation == "ingest" else self.provider_for_query
+        host = self.host_for(provider) or "its API endpoint"
+        hint = {
+            "ollama": " Start it with `ollama serve` (or `brew services start ollama`).",
+            "lmstudio": " Start the server in LM Studio (Developer tab) or run `lms server start`.",
+        }.get(provider.lower(), "")
+        return f"{provider} not reachable at {host}.{hint}"
+
     def create_llm(self, operation: str = "query") -> LLMProvider:
         """Create an LLM provider for the given operation (ingest or query)."""
         from muninn.llm import create_provider
@@ -124,7 +172,7 @@ class Settings(BaseModel):
         return create_provider(
             provider=provider,
             model=model,
-            host=self.ollama_host,
+            host=self.host_for(provider),
             timeout=self.llm_timeout,
             base_url=self.llm_base_url,
         )
@@ -197,6 +245,9 @@ def load_config(
         llm_model_query=raw_settings.get("llm_model_query") or raw_settings.get("ollama_model_query"),
         llm_timeout=float(raw_settings.get("llm_timeout") or raw_settings.get("ollama_timeout", 300)),
         ollama_host=raw_settings.get("ollama_host", "http://localhost:11434"),
+        lmstudio_host=raw_settings.get("lmstudio_host", "http://localhost:1234"),
+        embed_provider=raw_settings.get("embed_provider"),
+        embed_model=raw_settings.get("embed_model", "qwen3-embedding:8b"),
         num_ctx_ingest=int(raw_settings.get("num_ctx_ingest", 65536)),
         num_ctx_query=int(raw_settings.get("num_ctx_query", 32768)),
         max_body_ingest=int(raw_settings.get("max_body_ingest", 24000)),

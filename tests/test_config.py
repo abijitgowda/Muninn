@@ -43,7 +43,7 @@ def test_load_config_round_trip(tmp_path):
     cfg = load_config(config_path=cfg_yaml, vault_path=tmp_path / "vault")
     assert len(cfg.sources) == 1
     assert cfg.sources[0].options["browser"] == "chrome"
-    assert cfg.settings.ollama_model == "test-model"
+    assert cfg.settings.llm_model == "test-model"
 
 
 def test_secret_resolution(monkeypatch):
@@ -89,7 +89,7 @@ def test_per_op_model_overrides(tmp_path):
     )
     (tmp_path / "vault").mkdir()
     cfg = load_config(config_path=cfg_yaml, vault_path=tmp_path / "vault")
-    assert cfg.settings.ollama_model == "base"
+    assert cfg.settings.llm_model == "base"
     assert cfg.settings.model_for_ingest == "ingest-model"
     assert cfg.settings.model_for_query == "query-model"
 

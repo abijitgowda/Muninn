@@ -20,8 +20,8 @@ log = logging.getLogger(__name__)
 from rich.console import Console
 
 from .config import Config, SourceConfig
+from .llm import LLMError, LLMMetrics
 from .manifest import Manifest
-from .ollama import LLMMetrics, Ollama, OllamaError
 from .prompts import ANALYSIS_JSON_INSTRUCTION, EXTRACTION_JSON_INSTRUCTION, PromptLoader
 from .provenance import aggregate_confidence, compute_provenance, extract_inline_provenance
 from .sources.base import Source
@@ -289,11 +289,7 @@ class Pipeline:
             skills_dir=config.settings.skills_dir,
             schema_dir=Path(__file__).resolve().parents[1] / "docs" / "Schema",
         )
-        self.ollama = Ollama(
-            host=config.settings.ollama_host,
-            model=config.settings.model_for_ingest,
-            timeout=config.settings.llm_timeout,
-        )
+        self.llm = config.settings.create_llm("ingest")
         self._vectorstore = None
 
     @property
@@ -303,10 +299,7 @@ class Pipeline:
             try:
                 from .vectorstore import VectorStore
 
-                self._vectorstore = VectorStore(
-                    persist_dir=self.config.settings.state_dir / "chroma",
-                    ollama_host=self.config.settings.ollama_host,
-                )
+                self._vectorstore = VectorStore.from_settings(self.config.settings)
             except ImportError:
                 pass
         return self._vectorstore
@@ -369,7 +362,7 @@ class Pipeline:
         consecutive_failures = 0
         for idx, item in enumerate(pending, 1):
             raw_title = Path(item.path).stem[:50]
-            self.console.print(f"  [{idx}/{total_pending}] {raw_title} — calling Ollama...", end="")
+            self.console.print(f"  [{idx}/{total_pending}] {raw_title} — calling LLM...", end="")
             try:
                 touched = self.ingest_one(src_cfg, item.path, item.item_id)
                 # Check if item was skipped (garbage body)
@@ -378,7 +371,7 @@ class Pipeline:
                     results.append(IngestResult(item.item_id, Path(item.path), [], "skipped"))
                     self.console.print(" ⊘ skipped (garbage body)")
                     continue
-                m = self.ollama.last_metrics
+                m = self.llm.last_metrics
                 self.manifest.mark_processed(
                     src_cfg.name,
                     item.item_id,
@@ -398,7 +391,7 @@ class Pipeline:
                 consecutive_failures += 1
                 if consecutive_failures >= 3:
                     self.console.print(
-                        f"  [red]stopping: {consecutive_failures} consecutive failures — Ollama may be down[/red]"
+                        f"  [red]stopping: {consecutive_failures} consecutive failures — {self.llm.host or 'LLM'} may be down[/red]"
                     )
                     break
 
@@ -578,9 +571,9 @@ class Pipeline:
             + f"=== BODY ===\n{body}\n=== END BODY ==="
         )
         try:
-            return self.ollama.chat_json(system, user, num_ctx=self.config.settings.num_ctx_ingest)
-        except OllamaError as e:
-            raise RuntimeError(f"Ollama extraction failed: {e}") from e
+            return self.llm.chat_json(system, user, num_ctx=self.config.settings.num_ctx_ingest)
+        except LLMError as e:
+            raise RuntimeError(f"LLM extraction failed: {e}") from e
 
     def _two_pass_extract(
         self, raw_rel: str, frontmatter: dict, body: str, schema_hint: str, existing_titles: str
@@ -597,12 +590,12 @@ class Pipeline:
             + f"=== BODY ===\n{body}\n=== END BODY ==="
         )
         try:
-            analysis = self.ollama.chat_json(
+            analysis = self.llm.chat_json(
                 analysis_system, analysis_user, num_ctx=self.config.settings.num_ctx_ingest
             )
-        except OllamaError as e:
-            raise RuntimeError(f"Ollama analysis (pass 1) failed: {e}") from e
-        metrics_p1 = self.ollama.last_metrics
+        except LLMError as e:
+            raise RuntimeError(f"LLM analysis (pass 1) failed: {e}") from e
+        metrics_p1 = self.llm.last_metrics
 
         # ---- Pass 2: extraction using the analysis ----
         extract_system = "You are a knowledge extraction agent. Output JSON only."
@@ -621,19 +614,19 @@ class Pipeline:
             + f"=== BODY ===\n{body}\n=== END BODY ===\n/no_think"
         )
         try:
-            extraction = self.ollama.chat_json(
+            extraction = self.llm.chat_json(
                 extract_system, extract_user, num_ctx=self.config.settings.num_ctx_ingest
             )
-        except OllamaError as e:
-            raise RuntimeError(f"Ollama extraction (pass 2) failed: {e}") from e
-        metrics_p2 = self.ollama.last_metrics
+        except LLMError as e:
+            raise RuntimeError(f"LLM extraction (pass 2) failed: {e}") from e
+        metrics_p2 = self.llm.last_metrics
 
         # Merge claims from analysis if extraction didn't produce them
         if not extraction.get("claims") and analysis.get("claims"):
             extraction["claims"] = analysis["claims"]
 
         # Aggregate metrics from both passes
-        self.ollama.last_metrics = LLMMetrics(
+        self.llm.last_metrics = LLMMetrics(
             model=metrics_p2.model,
             prompt_tokens=metrics_p1.prompt_tokens + metrics_p2.prompt_tokens,
             completion_tokens=metrics_p1.completion_tokens + metrics_p2.completion_tokens,

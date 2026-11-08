@@ -22,7 +22,7 @@ from typing import Any
 from rich.console import Console
 
 from ..config import load_config
-from ..ollama import OllamaError
+from ..llm import LLMError
 from .query import answer_query, stream_query
 
 # Pydantic body models live at module scope so FastAPI's introspection recognizes them
@@ -146,7 +146,7 @@ def run_serve(
     vault = _get_vault(cfg)
     vault._ensure_slug_index()
     vault.all_pages()
-    _get_vectorstore(vault, cfg.settings.ollama_host)
+    _get_vectorstore(vault, cfg.settings)
     console.print(
         f"  Cache warmed: {len(vault._slug_index or {})} pages in {(_time.monotonic() - t0) * 1000:.0f}ms"
     )
@@ -335,7 +335,7 @@ def build_app() -> Any:
                     deep=deep,
                     history_context=history,
                 )
-            except OllamaError as e:
+            except LLMError as e:
                 log.error("query failed: %s — %s", question[:80], e)
                 raise HTTPException(status_code=503, detail=str(e)) from e
             elapsed = (_time.monotonic() - t0) * 1000
@@ -354,13 +354,17 @@ def build_app() -> Any:
                     deep=deep,
                     history_context=history,
                 )
-            except OllamaError as e:
+            except LLMError as e:
                 yield _sse_chunk(f"[error] {e}", req.model, finish="stop")
                 yield b"data: [DONE]\n\n"
                 return
             # Emit citations first as a hidden chunk inside content (clients ignore tags they don't parse).
-            for chunk in chunks:
-                yield _sse_chunk(chunk, req.model)
+            try:
+                for chunk in chunks:
+                    yield _sse_chunk(chunk, req.model)
+            except LLMError as e:
+                log.error("stream failed: %s — %s", question[:80], e)
+                yield _sse_chunk(f"\n\n[error] {e}", req.model)
             yield _sse_chunk(None, req.model, finish="stop")
             yield b"data: [DONE]\n\n"
 
@@ -374,7 +378,7 @@ def build_app() -> Any:
         _check_auth(authorization)
         try:
             result = answer_query(config, question=body.question, quick=body.quick, deep=body.deep)
-        except OllamaError as e:
+        except LLMError as e:
             raise HTTPException(status_code=503, detail=str(e)) from e
         return {
             "question": result.question,

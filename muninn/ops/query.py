@@ -2,7 +2,7 @@
 
 Retrieval pipeline:
   1. Keyword scoring (BM25-lite: term overlap on title + summary + tags + body)
-  2. Vector similarity (mxbai-embed-large via Ollama /v1/embeddings)
+  2. Vector similarity (embed_model via Ollama or LM Studio /v1/embeddings)
   3. Reciprocal Rank Fusion (RRF) to merge both ranked lists
   4. LLM reranking — ask the model to pick the top-K most relevant candidates
   5. Synthesis — answer the question using the reranked context
@@ -22,8 +22,8 @@ from pathlib import Path
 from rich.console import Console
 
 from ..config import Config
+from ..llm import LLMError, LLMProvider
 from ..manifest import Manifest
-from ..ollama import Ollama, OllamaError
 from ..prompts import PromptLoader
 from ..vault import Vault
 from .retrieval import _adaptive_retrieve, _expand_followup, _gather_context
@@ -58,7 +58,7 @@ class QueryContext:
 
     config: Config
     vault: Vault
-    ollama: Ollama
+    llm: LLMProvider
     prompts: PromptLoader
     manifest: Manifest
 
@@ -126,14 +126,10 @@ def answer_query(
         schema_dir=Path(__file__).resolve().parents[2] / "docs" / "Schema",
     )
     manifest = _get_manifest(config)
-    with Ollama(
-        host=config.settings.ollama_host,
-        model=config.settings.model_for_query,
-        timeout=config.settings.llm_timeout,
-    ) as ollama:
-        ctx = QueryContext(config=config, vault=vault, ollama=ollama, prompts=prompts, manifest=manifest)
-        if not ctx.ollama.ping():
-            raise OllamaError(f"Ollama not reachable at {config.settings.ollama_host}")
+    with config.settings.create_llm("query") as llm:
+        ctx = QueryContext(config=config, vault=vault, llm=llm, prompts=prompts, manifest=manifest)
+        if not ctx.llm.ping():
+            raise LLMError(config.settings.unreachable_message("query"))
 
         import time as _time
 
@@ -181,9 +177,9 @@ def answer_query(
         prompt_chars = len(system) + len(user)
 
         t_llm = _time.monotonic()
-        answer = ctx.ollama.chat(system, user, temperature=0.2, num_ctx=config.settings.num_ctx_query)
+        answer = ctx.llm.chat(system, user, temperature=0.2, num_ctx=config.settings.num_ctx_query)
         llm_ms = (_time.monotonic() - t_llm) * 1000
-        metrics = ctx.ollama.last_metrics
+        metrics = ctx.llm.last_metrics
         log.info(
             "query: %r — retrieval=%.0fms, llm=%.0fms (%.0f tok/s), prompt=%d chars, answer=%d chars, cited=%d pages",
             question[:60],
@@ -233,16 +229,12 @@ def stream_query(
     )
     manifest = _get_manifest(config)
 
-    ollama = Ollama(
-        host=config.settings.ollama_host,
-        model=config.settings.model_for_query,
-        timeout=config.settings.llm_timeout,
-    )
-    if not ollama.ping():
-        ollama.close()
-        raise OllamaError(f"Ollama not reachable at {config.settings.ollama_host}")
+    llm = config.settings.create_llm("query")
+    if not llm.ping():
+        llm.close()
+        raise LLMError(config.settings.unreachable_message("query"))
 
-    ctx = QueryContext(config=config, vault=vault, ollama=ollama, prompts=prompts, manifest=manifest)
+    ctx = QueryContext(config=config, vault=vault, llm=llm, prompts=prompts, manifest=manifest)
 
     import time as _time
 
@@ -294,7 +286,7 @@ def stream_query(
     def _generate() -> Iterator[str]:
         t0 = _time.monotonic()
         try:
-            yield from ctx.ollama.chat_stream(
+            yield from ctx.llm.chat_stream(
                 system, user, temperature=0.2, num_ctx=config.settings.num_ctx_query
             )
         finally:
@@ -310,7 +302,7 @@ def stream_query(
                 )
             except Exception:  # noqa: BLE001
                 pass
-            ctx.ollama.close()
+            ctx.llm.close()
 
     return cited, _generate()
 
@@ -337,18 +329,14 @@ def run_query(
 
     if cite_only:
         # Replicate Tier-1+ retrieval to print citations without calling the LLM.
-        # Build a minimal QueryContext — ollama won't be used (keyword-only).
+        # Build a minimal QueryContext — the LLM won't be called (keyword-only).
         prompts = PromptLoader(
             skills_dir=config.settings.skills_dir,
             schema_dir=Path(__file__).resolve().parents[2] / "docs" / "Schema",
         )
         manifest = _get_manifest(config)
-        with Ollama(
-            host=config.settings.ollama_host,
-            model=config.settings.model_for_query,
-            timeout=config.settings.llm_timeout,
-        ) as ollama:
-            ctx = QueryContext(config=config, vault=vault, ollama=ollama, prompts=prompts, manifest=manifest)
+        with config.settings.create_llm("query") as llm:
+            ctx = QueryContext(config=config, vault=vault, llm=llm, prompts=prompts, manifest=manifest)
             idx_text = (
                 (vault.wiki / "index.md").read_text(encoding="utf-8")
                 if (vault.wiki / "index.md").exists()
@@ -362,8 +350,8 @@ def run_query(
 
     try:
         result = answer_query(config, question=resolved, quick=quick, deep=deep)
-    except OllamaError as e:
-        console.print(f"[red]Ollama query failed: {e}[/red]")
+    except LLMError as e:
+        console.print(f"[red]LLM query failed: {e}[/red]")
         return
 
     if json_out:

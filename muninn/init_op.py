@@ -8,6 +8,7 @@ import shutil
 import subprocess
 from pathlib import Path
 
+import click
 import typer
 from rich.console import Console
 
@@ -15,12 +16,28 @@ PROJECT_ROOT = Path(__file__).resolve().parents[1]
 DEMO_VAULT = PROJECT_ROOT / "Muninn-Demo"
 EXAMPLE_ENV = PROJECT_ROOT / ".env.example"
 
+OLLAMA_HOST = "http://localhost:11434"
+LMSTUDIO_HOST = "http://localhost:1234"
+_OLLAMA_DEFAULT_EMBED = "qwen3-embedding:8b"
+_LMSTUDIO_DEFAULT_EMBED = "text-embedding-nomic-embed-text-v1.5"  # bundled with LM Studio
+
 
 def run_init(install_launchd: bool, console: Console) -> None:
     console.print("[bold]Muninn init[/bold]\n")
 
     _check_python(console)
-    ollama_ok, models = _check_ollama(console)
+    ollama_ok, ollama_models = _check_ollama(console)
+    lmstudio_ok, lmstudio_models = _check_lmstudio(console)
+
+    default_provider = "lmstudio" if lmstudio_ok and not ollama_ok else "ollama"
+    provider = typer.prompt(
+        "Local LLM provider",
+        default=default_provider,
+        type=click.Choice(["ollama", "lmstudio"], case_sensitive=False),
+    ).lower()
+    provider_ok, models = (
+        (ollama_ok, ollama_models) if provider == "ollama" else (lmstudio_ok, lmstudio_models)
+    )
 
     # ---- Vault setup ----
     vault_name = typer.prompt("Vault name", default="Muninn-Vault")
@@ -35,9 +52,10 @@ def run_init(install_launchd: bool, console: Console) -> None:
     (vault_path / ".muninn").mkdir(exist_ok=True)
 
     # ---- Model selection ----
-    if ollama_ok and models:
-        _embed_names = {"mxbai-embed", "nomic-embed", "all-minilm", "snowflake-arctic-embed", "embed"}
-        chat_models = [m for m in models if not any(e in m.lower() for e in _embed_names)]
+    _embed_names = {"mxbai-embed", "nomic-embed", "all-minilm", "snowflake-arctic-embed", "embed"}
+    embed_models = [m for m in models if any(e in m.lower() for e in _embed_names)]
+    if provider_ok and models:
+        chat_models = [m for m in models if m not in embed_models]
         console.print(f"\n  Available models: {', '.join(chat_models[:10])}")
         default_model = (
             "gemma4:e4b" if "gemma4:e4b" in chat_models else (chat_models[0] if chat_models else "gemma4:e4b")
@@ -47,6 +65,14 @@ def run_init(install_launchd: bool, console: Console) -> None:
     else:
         ingest_model = typer.prompt("Ingest model", default="gemma4:e4b")
         query_model = typer.prompt("Query model", default=ingest_model)
+
+    if provider == "lmstudio":
+        # LM Studio model ids differ from Ollama's, so the embedding model must be chosen too.
+        embed_model = typer.prompt(
+            "Embedding model", default=embed_models[0] if embed_models else _LMSTUDIO_DEFAULT_EMBED
+        )
+    else:
+        embed_model = _OLLAMA_DEFAULT_EMBED
 
     # ---- Write .env early so _store_secret can append to it ----
     _write_env(console)
@@ -93,7 +119,7 @@ def run_init(install_launchd: bool, console: Console) -> None:
     # Inbox is built-in — vault/Inbox/ is always watched, no config needed
 
     # ---- Write configs ----
-    _write_wiki_yaml(vault_path, ingest_model, query_model, sources, console)
+    _write_wiki_yaml(vault_path, provider, ingest_model, query_model, embed_model, sources, console)
 
     # ---- Log directory ----
     (Path.home() / "Library" / "Logs" / "Muninn").mkdir(parents=True, exist_ok=True)
@@ -110,9 +136,18 @@ def run_init(install_launchd: bool, console: Console) -> None:
 
     console.print("\n[bold green]Done.[/bold green]")
     console.print(f"  Vault: [cyan]{vault_path}[/cyan]")
-    if not ollama_ok:
+    if provider == "ollama" and not ollama_ok:
         console.print("  Install Ollama: [cyan]brew install ollama && ollama serve[/cyan]")
         console.print(f"  Pull model: [cyan]ollama pull {ingest_model}[/cyan]")
+    if provider == "lmstudio" and not lmstudio_ok:
+        console.print(
+            "  Start LM Studio's server: Developer tab → Start server, or [cyan]lms server start[/cyan]"
+        )
+        console.print(f"  Load models in LM Studio: [cyan]{ingest_model}[/cyan], [cyan]{embed_model}[/cyan]")
+    if provider == "lmstudio":
+        console.print(
+            "  LM Studio sets the context length when a model is loaded — make it ≥ num_ctx_ingest in wiki.yaml"
+        )
     console.print("  First ingest: [cyan]muninn ingest --all --limit 5 -v[/cyan]")
     console.print(f"  Open [cyan]{vault_path}[/cyan] in Obsidian")
 
@@ -134,7 +169,7 @@ def _check_ollama(console: Console) -> tuple[bool, list[str]]:
     try:
         import httpx
 
-        r = httpx.get("http://localhost:11434/api/tags", timeout=5)
+        r = httpx.get(f"{OLLAMA_HOST}/api/tags", timeout=5)
         if r.status_code == 200:
             models = [m["name"] for m in r.json().get("models", [])]
             console.print(f"  Ollama ✓ ({len(models)} models)")
@@ -142,6 +177,21 @@ def _check_ollama(console: Console) -> tuple[bool, list[str]]:
     except Exception:
         pass
     console.print("  [yellow]Ollama not reachable[/yellow]")
+    return False, []
+
+
+def _check_lmstudio(console: Console) -> tuple[bool, list[str]]:
+    try:
+        import httpx
+
+        r = httpx.get(f"{LMSTUDIO_HOST}/v1/models", timeout=5)
+        if r.status_code == 200:
+            models = [m["id"] for m in r.json().get("data", [])]
+            console.print(f"  LM Studio ✓ ({len(models)} models)")
+            return True, models
+    except Exception:
+        pass
+    console.print("  [yellow]LM Studio not reachable[/yellow]")
     return False, []
 
 
@@ -252,14 +302,23 @@ def _store_secret(key: str, value: str, console: Console) -> None:
 
 
 def _write_wiki_yaml(
-    vault_path: Path, ingest_model: str, query_model: str, sources: list[dict], console: Console
+    vault_path: Path,
+    provider: str,
+    ingest_model: str,
+    query_model: str,
+    embed_model: str,
+    sources: list[dict],
+    console: Console,
 ) -> None:
     import yaml
 
     config = {
         "settings": {
             "vault_path": str(vault_path),
-            "ollama_host": "http://localhost:11434",
+            "llm_provider": provider,
+            "ollama_host": OLLAMA_HOST,
+            "lmstudio_host": LMSTUDIO_HOST,
+            "embed_model": embed_model,
             "llm_model": ingest_model,
             "llm_model_ingest": ingest_model,
             "llm_model_query": query_model,

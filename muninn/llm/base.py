@@ -18,7 +18,8 @@ class LLMMetrics:
     prompt_tokens: int = 0
     completion_tokens: int = 0
     total_duration_ms: float = 0
-    eval_rate: float = 0
+    prompt_eval_rate: float = 0  # tokens/sec for prompt processing (Ollama only)
+    eval_rate: float = 0  # tokens/sec for generation
 
     def __str__(self) -> str:
         if not self.eval_rate:
@@ -32,6 +33,7 @@ class LLMProvider(ABC):
     """Common interface for all LLM backends."""
 
     model: str
+    host: str = ""  # endpoint this provider talks to, for error messages
     last_metrics: LLMMetrics
 
     @abstractmethod

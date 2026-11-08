@@ -14,6 +14,8 @@ from .base import LLMError, LLMMetrics, LLMProvider
 
 
 class OpenAIProvider(LLMProvider):
+    label = "OpenAI"  # used in error messages
+
     def __init__(
         self,
         model: str = "gpt-4o",
@@ -25,6 +27,7 @@ class OpenAIProvider(LLMProvider):
         self.last_metrics = LLMMetrics()
         self._api_key = api_key or os.environ.get("OPENAI_API_KEY", "")
         self._base_url = base_url.rstrip("/")
+        self.host = self._base_url
         self._client = httpx.Client(
             timeout=timeout,
             base_url=self._base_url,
@@ -48,10 +51,10 @@ class OpenAIProvider(LLMProvider):
                 {"role": "user", "content": user},
             ],
             "temperature": temperature,
-            "max_tokens": num_ctx,
+            **self._token_limit(num_ctx),
         }
         if json_mode or json_schema:
-            payload["response_format"] = {"type": "json_object"}
+            payload["response_format"] = self._json_response_format(json_schema)
 
         last_err = None
         for attempt in range(retries + 1):
@@ -78,8 +81,8 @@ class OpenAIProvider(LLMProvider):
                 if attempt < retries:
                     time.sleep(2**attempt)
                     continue
-                raise LLMError(f"OpenAI request failed: {e}") from e
-        raise LLMError(f"OpenAI request failed after retries: {last_err}")
+                raise LLMError(f"{self.label} request failed: {e}") from e
+        raise LLMError(f"{self.label} request failed after retries: {last_err}")
 
     def chat_stream(self, system, user, *, temperature=0.2, num_ctx=32768) -> Iterator[str]:
         payload = {
@@ -89,31 +92,46 @@ class OpenAIProvider(LLMProvider):
                 {"role": "user", "content": user},
             ],
             "temperature": temperature,
-            "max_tokens": num_ctx,
+            **self._token_limit(num_ctx),
             "stream": True,
         }
-        with self._client.stream("POST", "/chat/completions", json=payload) as r:
-            r.raise_for_status()
-            for line in r.iter_lines():
-                if not line or not line.startswith("data: "):
-                    continue
-                data_str = line[6:]
-                if data_str.strip() == "[DONE]":
-                    break
-                try:
-                    obj = json.loads(data_str)
-                    delta = obj["choices"][0].get("delta", {})
-                    chunk = delta.get("content", "")
-                    if chunk:
-                        yield chunk
-                except (json.JSONDecodeError, KeyError, IndexError):
-                    continue
+        try:
+            with self._client.stream("POST", "/chat/completions", json=payload) as r:
+                if r.is_error:
+                    r.read()
+                    raise LLMError(f"{self.label} {r.status_code}: {r.text[:500]}")
+                yield from self._iter_stream(r)
+        except httpx.HTTPError as e:
+            raise LLMError(f"{self.label} stream failed: {e}") from e
+
+    @staticmethod
+    def _iter_stream(r: httpx.Response) -> Iterator[str]:
+        for line in r.iter_lines():
+            if not line or not line.startswith("data: "):
+                continue
+            data_str = line[6:]
+            if data_str.strip() == "[DONE]":
+                break
+            try:
+                obj = json.loads(data_str)
+                delta = obj["choices"][0].get("delta", {})
+                chunk = delta.get("content", "")
+                if chunk:
+                    yield chunk
+            except (json.JSONDecodeError, KeyError, IndexError):
+                continue
 
     def chat_json(
         self, system, user, *, json_schema=None, temperature=0.0, num_ctx=32768, retries=2
     ) -> dict[str, Any]:
         raw = self.chat(
-            system, user, json_mode=True, temperature=temperature, num_ctx=num_ctx, retries=retries
+            system,
+            user,
+            json_mode=True,
+            json_schema=json_schema,
+            temperature=temperature,
+            num_ctx=num_ctx,
+            retries=retries,
         )
         cleaned = raw.strip()
         if cleaned.startswith("```"):
@@ -123,7 +141,7 @@ class OpenAIProvider(LLMProvider):
         try:
             return json.loads(cleaned)
         except json.JSONDecodeError as e:
-            raise LLMError(f"Invalid JSON from OpenAI: {e}\n---\n{raw[:500]}") from e
+            raise LLMError(f"Invalid JSON from {self.label}: {e}\n---\n{raw[:500]}") from e
 
     def embed(self, texts, *, model=None) -> list[list[float]]:
         embed_model = model or "text-embedding-3-small"
@@ -134,3 +152,11 @@ class OpenAIProvider(LLMProvider):
 
     def close(self):
         self._client.close()
+
+    # ---- hooks for OpenAI-compatible servers that differ in the details ----
+
+    def _json_response_format(self, json_schema: dict | None) -> dict[str, Any]:
+        return {"type": "json_object"}
+
+    def _token_limit(self, num_ctx: int) -> dict[str, Any]:
+        return {"max_tokens": num_ctx}

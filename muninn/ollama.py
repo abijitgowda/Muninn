@@ -8,33 +8,15 @@ from __future__ import annotations
 import json
 import time
 from collections.abc import Iterator
-from dataclasses import dataclass
 from typing import Any
 
 import httpx
 
+from .llm.base import LLMError, LLMMetrics
 
-class OllamaError(Exception):
+
+class OllamaError(LLMError):
     pass
-
-
-@dataclass
-class LLMMetrics:
-    """Performance metrics from the last Ollama call."""
-
-    model: str = ""
-    prompt_tokens: int = 0
-    completion_tokens: int = 0
-    total_duration_ms: float = 0
-    prompt_eval_rate: float = 0  # tokens/sec for prompt processing
-    eval_rate: float = 0  # tokens/sec for generation
-
-    def __str__(self) -> str:
-        if not self.eval_rate:
-            return ""
-        return (
-            f"{self.eval_rate:.1f} tok/s ({self.completion_tokens} tokens in {self.total_duration_ms:.0f}ms)"
-        )
 
 
 class Ollama:
@@ -100,6 +82,8 @@ class Ollama:
         for attempt in range(retries + 1):
             try:
                 r = self._client.post("/api/chat", json=payload)
+                if r.is_client_error:  # bad model name, bad request — retrying won't help
+                    raise OllamaError(f"Ollama {r.status_code}: {_error_detail(r)}")
                 r.raise_for_status()
                 data = r.json()
                 self._capture_metrics(data)
@@ -130,20 +114,31 @@ class Ollama:
             "stream": True,
             "options": {"temperature": temperature, "num_ctx": num_ctx},
         }
-        with self._client.stream("POST", "/api/chat", json=payload) as r:
-            r.raise_for_status()
-            for line in r.iter_lines():
-                if not line:
-                    continue
-                try:
-                    obj = json.loads(line)
-                except json.JSONDecodeError:
-                    continue
-                chunk = (obj.get("message") or {}).get("content") or ""
-                if chunk:
-                    yield chunk
-                if obj.get("done"):
-                    break
+        try:
+            with self._client.stream("POST", "/api/chat", json=payload) as r:
+                if r.is_error:
+                    r.read()
+                    raise OllamaError(f"Ollama {r.status_code}: {_error_detail(r)}")
+                yield from self._iter_stream(r)
+        except httpx.HTTPError as e:
+            raise OllamaError(f"Ollama stream failed: {e}") from e
+
+    @staticmethod
+    def _iter_stream(r: httpx.Response) -> Iterator[str]:
+        for line in r.iter_lines():
+            if not line:
+                continue
+            try:
+                obj = json.loads(line)
+            except json.JSONDecodeError:
+                continue
+            if obj.get("error"):
+                raise OllamaError(f"Ollama: {obj['error']}")
+            chunk = (obj.get("message") or {}).get("content") or ""
+            if chunk:
+                yield chunk
+            if obj.get("done"):
+                break
 
     def _capture_metrics(self, data: dict[str, Any]) -> None:
         """Extract performance metrics from Ollama response."""
@@ -163,7 +158,7 @@ class Ollama:
 
     def embed(self, texts: list[str], *, model: str | None = None) -> list[list[float]]:
         """Get embeddings via Ollama's OpenAI-compat endpoint."""
-        embed_model = model or "mxbai-embed-large"
+        embed_model = model or "qwen3-embedding:8b"
         r = self._client.post(
             "/v1/embeddings",
             json={"model": embed_model, "input": texts},
@@ -202,3 +197,11 @@ class Ollama:
             return json.loads(cleaned)
         except json.JSONDecodeError as e:
             raise OllamaError(f"Ollama returned invalid JSON: {e}\n---\n{raw[:1000]}") from e
+
+
+def _error_detail(r: httpx.Response) -> str:
+    """Pull Ollama's {"error": "..."} message out of a failed response."""
+    try:
+        return r.json().get("error") or r.text
+    except (ValueError, AttributeError):
+        return r.text or r.reason_phrase

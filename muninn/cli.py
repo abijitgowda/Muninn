@@ -223,10 +223,7 @@ def vectorstore_sync() -> None:
 
     cfg = load_config()
     vault = Vault(cfg.settings.vault_path)
-    vs = VectorStore(
-        persist_dir=cfg.settings.state_dir / "chroma",
-        ollama_host=cfg.settings.ollama_host,
-    )
+    vs = VectorStore.from_settings(cfg.settings)
     pages = vault.all_pages()
     console.print(f"[bold]Syncing {len(pages)} pages to ChromaDB...[/bold]")
     upserted, deleted = vs.sync_vault(pages)
@@ -324,10 +321,7 @@ def status() -> None:
     try:
         from .vectorstore import VectorStore
 
-        vs = VectorStore(
-            persist_dir=cfg.settings.state_dir / "chroma",
-            ollama_host=cfg.settings.ollama_host,
-        )
+        vs = VectorStore.from_settings(cfg.settings)
         console.print(f"  Vector store: [cyan]{vs.count}[/cyan] documents in ChromaDB")
     except Exception:  # noqa: BLE001
         console.print("  Vector store: [yellow]not initialized[/yellow] (run muninn vectorstore-sync)")
@@ -340,7 +334,13 @@ def status() -> None:
         )
 
     console.print(
-        f"  Models — ingest: [cyan]{cfg.settings.model_for_ingest}[/cyan]  query: [cyan]{cfg.settings.model_for_query}[/cyan]  embed: [cyan]mxbai-embed-large[/cyan]  retrieval: [cyan]{cfg.settings.retrieval_mode}[/cyan]"
+        f"  Models — ingest: [cyan]{cfg.settings.model_for_ingest}[/cyan]  query: [cyan]{cfg.settings.model_for_query}[/cyan]  embed: [cyan]{cfg.settings.embed_model}[/cyan]  retrieval: [cyan]{cfg.settings.retrieval_mode}[/cyan]"
+    )
+    st = cfg.settings
+    console.print(
+        f"  Providers — ingest: [cyan]{st.provider_for_ingest}[/cyan] @ {st.host_for(st.provider_for_ingest) or '-'}"
+        f"  query: [cyan]{st.provider_for_query}[/cyan] @ {st.host_for(st.provider_for_query) or '-'}"
+        f"  embed: [cyan]{st.embed_provider_resolved}[/cyan] @ {st.embed_host}"
     )
 
 

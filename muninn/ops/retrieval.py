@@ -15,7 +15,7 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any
 
-from ..ollama import Ollama
+from ..llm import LLMProvider
 from ..vault import Page, Vault
 
 log = logging.getLogger(__name__)
@@ -129,6 +129,7 @@ def _expand_followup(question: str, history_context: str) -> str:
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
+    from ..config import Settings
     from .query import QueryContext
 
 
@@ -422,7 +423,7 @@ def _adaptive_retrieve(
     max_pages = ctx.config.settings.max_retrieval_pages
     if need_rerank:
         log.info("adaptive: rerank — candidates ambiguous, asking LLM")
-        final = _llm_rerank(question, candidates, ctx.ollama, top_k=max_pages)
+        final = _llm_rerank(question, candidates, ctx.llm, top_k=max_pages)
     else:
         final = candidates[:max_pages]
 
@@ -589,7 +590,7 @@ def _gather_context(
         return [("Wiki/index.md", idx_text)]
 
     if use_rerank:
-        final = _llm_rerank(question, candidates, ctx.ollama, top_k=max_pages)
+        final = _llm_rerank(question, candidates, ctx.llm, top_k=max_pages)
     else:
         final = candidates[:max_pages]
 
@@ -677,7 +678,7 @@ def _keyword_rank(question: str, pages: list[Page]) -> list[Page]:
 _vectorstore_cache: dict[str, Any] = {}
 
 
-def _get_vectorstore(vault: Vault, ollama_host: str) -> Any:
+def _get_vectorstore(vault: Vault, settings: Settings) -> Any:
     """Lazy cache keyed by vault path — safe for multi-vault and testing."""
     key = str(vault.root)
     if key in _vectorstore_cache:
@@ -687,7 +688,9 @@ def _get_vectorstore(vault: Vault, ollama_host: str) -> Any:
 
         vs = VectorStore(
             persist_dir=vault.root / ".muninn" / "chroma",
-            ollama_host=ollama_host,
+            embed_host=settings.embed_host,
+            embed_model=settings.embed_model,
+            embed_provider=settings.embed_provider_resolved,
         )
         _vectorstore_cache[key] = vs
         return vs
@@ -699,9 +702,8 @@ def _vector_rank(
     question: str,
     pages: list[Page],
     ctx: QueryContext,
-    embed_model: str = "mxbai-embed-large",
 ) -> list[Page]:
-    vs = _get_vectorstore(ctx.vault, ctx.ollama.host)
+    vs = _get_vectorstore(ctx.vault, ctx.config.settings)
     if vs and vs.count > 0:
         return _vector_rank_chroma(question, pages, vs)
     log.info("vector search skipped: ChromaDB empty or unavailable (run `muninn vectorstore-sync`)")
@@ -755,7 +757,7 @@ def _rrf(keyword: list[Page], vector: list[Page], k: int = 60) -> list[Page]:
 def _llm_rerank(
     question: str,
     candidates: list[Page],
-    ollama: Ollama,
+    llm: LLMProvider,
     top_k: int = 5,
 ) -> list[Page]:
     numbered = "\n".join(
@@ -769,7 +771,7 @@ def _llm_rerank(
     )
     user = f"QUESTION: {question}\n\nCANDIDATES:\n{numbered}"
     try:
-        result = ollama.chat_json(system, user, temperature=0.0, num_ctx=4096)
+        result = llm.chat_json(system, user, temperature=0.0, num_ctx=4096)
         if isinstance(result, list):
             indices = result
         elif isinstance(result, dict):

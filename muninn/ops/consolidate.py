@@ -13,7 +13,7 @@ from datetime import datetime, timedelta
 from rich.console import Console
 
 from ..config import Config
-from ..ollama import Ollama, OllamaError
+from ..llm import LLMError, LLMProvider
 from ..vault import Page, Vault
 from . import safe_date as _safe_date
 
@@ -49,11 +49,7 @@ def run_consolidate(
 
     console.print(f"  candidates: {len(candidates)}")
 
-    llm = Ollama(
-        host=config.settings.ollama_host,
-        model=config.settings.model_for_ingest,
-        timeout=config.settings.llm_timeout,
-    )
+    llm = config.settings.create_llm("ingest")
 
     if dry_run:
         for i, page in enumerate(candidates, 1):
@@ -75,7 +71,7 @@ def run_consolidate(
 
         try:
             new_body = _consolidate_page(llm, page, is_synthesis=is_synthesis)
-        except OllamaError as exc:
+        except LLMError as exc:
             console.print(f"  [red][{i}/{len(candidates)}] {page.title} — LLM error: {exc}[/red]")
             continue
 
@@ -106,10 +102,7 @@ def run_consolidate(
         try:
             from ..vectorstore import VectorStore
 
-            vs = VectorStore(
-                persist_dir=config.settings.state_dir / "chroma",
-                ollama_host=config.settings.ollama_host,
-            )
+            vs = VectorStore.from_settings(config.settings)
             refreshed = vault.all_pages()
             upserted, deleted = vs.sync_vault(refreshed)
             console.print(f"  vectorstore synced: {upserted} upserted, {deleted} deleted")
@@ -193,7 +186,7 @@ def _words(text: str) -> set[str]:
 def _dedup_pass(
     pages: list[Page],
     vault: Vault,
-    ollama: Ollama,
+    llm: LLMProvider,
     *,
     dry_run: bool,
     console: Console,
@@ -267,7 +260,7 @@ def _dedup_pass(
         )
 
         try:
-            result = ollama.chat_json(
+            result = llm.chat_json(
                 prompt_system,
                 prompt_user,
                 temperature=0,
@@ -403,7 +396,7 @@ Keep the claims and facts; lose the ingestion scaffolding."""
 
 
 def _consolidate_page(
-    llm: Ollama,
+    llm: LLMProvider,
     page: Page,
     *,
     is_synthesis: bool,
