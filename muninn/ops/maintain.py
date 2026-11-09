@@ -33,14 +33,9 @@ def run_maintain(
 
     decayed, archived = _decay_pass(pages, vault, config, dry_run=dry_run, console=console)
 
-    from ..ollama import Ollama
     from .consolidate import _dedup_pass, _supersession_pass
 
-    llm = Ollama(
-        host=config.settings.ollama_host,
-        model=config.settings.model_for_ingest,
-        timeout=config.settings.llm_timeout,
-    )
+    llm = config.settings.create_llm("ingest")
     merged = _dedup_pass(pages, vault, llm, dry_run=dry_run, console=console)
     superseded = _supersession_pass(pages, vault, dry_run=dry_run, console=console)
 
@@ -58,10 +53,7 @@ def run_maintain(
         try:
             from ..vectorstore import VectorStore
 
-            vs = VectorStore(
-                persist_dir=config.settings.state_dir / "chroma",
-                ollama_host=config.settings.ollama_host,
-            )
+            vs = VectorStore.from_settings(config.settings)
             upserted, deleted = vs.sync_vault(pages)
             console.print(f"  vectorstore synced: {upserted} upserted, {deleted} deleted")
         except Exception as e:  # noqa: BLE001
@@ -461,10 +453,7 @@ def _refresh_pages(pages, vault: Vault, config: Config, *, dry_run: bool, consol
         try:
             from ..vectorstore import VectorStore
 
-            vs = VectorStore(
-                persist_dir=config.settings.state_dir / "chroma",
-                ollama_host=config.settings.ollama_host,
-            )
+            vs = VectorStore.from_settings(config.settings)
             upserted, deleted = vs.sync_vault(pages)
             console.print(f"  vectorstore synced: {upserted} upserted, {deleted} deleted")
         except ImportError:

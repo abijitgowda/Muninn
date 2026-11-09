@@ -9,6 +9,10 @@ from ..pipeline import Pipeline
 from ..sources.url import UrlSource
 
 
+def _unreachable_msg(config: Config) -> str:
+    return config.settings.unreachable_message("ingest")
+
+
 def run_ingest(
     config: Config,
     *,
@@ -71,11 +75,8 @@ def run_ingest(
         return
 
     console.print(f"[bold]Running ingest for {len(targets)} source(s)[/bold]")
-    if not dry_run and not pipeline.ollama.ping():
-        console.print(
-            f"[red]Ollama not reachable at {config.settings.ollama_host}. "
-            "Start it with `ollama serve` (or `brew services start ollama`).[/red]"
-        )
+    if not dry_run and not pipeline.llm.ping():
+        console.print(f"[red]{_unreachable_msg(config)}[/red]")
         return
 
     total_touched = 0
@@ -125,8 +126,8 @@ def run_ingest_url(
 ) -> None:
     """Ingest one or more URLs via the UrlSource."""
     pipeline = Pipeline(config, console=console)
-    if not dry_run and not pipeline.ollama.ping():
-        console.print(f"[red]Ollama not reachable at {config.settings.ollama_host}[/red]")
+    if not dry_run and not pipeline.llm.ping():
+        console.print(f"[red]{_unreachable_msg(config)}[/red]")
         return
 
     source = UrlSource(name="url", url="", secret=None, options={})

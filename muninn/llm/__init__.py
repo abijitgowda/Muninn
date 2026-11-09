@@ -1,4 +1,4 @@
-"""LLM provider abstraction — swap between Ollama, OpenAI, Anthropic, OpenRouter."""
+"""LLM provider abstraction — swap between Ollama, LM Studio, OpenAI, Anthropic, OpenRouter."""
 
 from __future__ import annotations
 

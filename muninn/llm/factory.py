@@ -18,7 +18,8 @@ def create_provider(
     """Create an LLM provider by name.
 
     Providers:
-        ollama      — local Ollama (default)
+        ollama      — local Ollama (default), uses `host` (ollama_host)
+        lmstudio    — local LM Studio, uses `host` (lmstudio_host)
         openai      — OpenAI API
         anthropic   — Anthropic Claude API
         openrouter  — OpenRouter (OpenAI-compatible)
@@ -30,6 +31,16 @@ def create_provider(
         from .ollama_provider import OllamaProvider
 
         return OllamaProvider(host=host, model=model, timeout=timeout)
+
+    if p == "lmstudio":
+        from .lmstudio_provider import LMStudioProvider
+
+        return LMStudioProvider(
+            host=host,
+            model=model,
+            timeout=timeout,
+            api_key=api_key or os.environ.get("LMSTUDIO_API_KEY"),
+        )
 
     if p == "openai":
         from .openai_provider import OpenAIProvider
@@ -72,4 +83,6 @@ def create_provider(
             timeout=timeout,
         )
 
-    raise LLMError(f"Unknown provider: {provider!r}. Use: ollama, openai, anthropic, openrouter, custom")
+    raise LLMError(
+        f"Unknown provider: {provider!r}. Use: ollama, lmstudio, openai, anthropic, openrouter, custom"
+    )

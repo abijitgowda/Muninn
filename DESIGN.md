@@ -80,10 +80,11 @@ updated: "2026-03-05"
 
 ChromaDB at `<vault>/.muninn/chroma/`:
 
-- `mxbai-embed-large` via Ollama (1024-dim, local)
+- `qwen3-embedding:8b` via Ollama (4096-dim, local)
 - Pre-computed on ingest, not at query time
 - Content hashing — only re-embeds when summary changes
-- `muninn vectorstore-sync` rebuilds from scratch
+- `muninn vectorstore-sync` upserts every page and drops vectors for deleted pages; unchanged pages are not re-embedded
+- Changing the embedding model: delete `<vault>/.muninn/chroma/`, then run `muninn vectorstore-sync`
 
 ### Manifest
 
@@ -101,7 +102,7 @@ Four modes, set via `settings.retrieval_mode`:
 ```
                 keyword     hybrid      reranked    adaptive
 Step 1: Keyword  always      always      always      auto
-Step 2: Vector   —           mxbai       mxbai       auto
+Step 2: Vector   —           qwen3       qwen3       auto
 Step 3: RRF      —           merge       merge       auto
 Step 4: Rerank   —           —           top-K       auto
 Step 5: Spread   —           —           —           auto
@@ -120,7 +121,7 @@ Escalates through tiers until enough context is found.
 
 **Strength-weighted scoring**: Keyword scores are multiplied by `strength` — frequently accessed pages rise, neglected pages fade.
 
-**Graceful degradation**: Missing `mxbai-embed-large` falls back to keyword-only. Failed rerank falls back to RRF order. Empty ChromaDB falls back to keyword.
+**Graceful degradation**: Missing `qwen3-embedding:8b` falls back to keyword-only. Failed rerank falls back to RRF order. Empty ChromaDB falls back to keyword.
 
 ## 4. Memory model
 

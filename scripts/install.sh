@@ -14,7 +14,7 @@ MIN_PY="3.11"
 
 # ---- Find Python >= 3.11 ----
 find_python() {
-  for cmd in python3.14 python3.13 python3.12 python3.11 python3 python; do
+  for cmd in python3.15 python3.14 python3.13 python3.12 python3.11 python3 python; do
     if command -v "$cmd" >/dev/null 2>&1; then
       local ver
       ver=$("$cmd" -c "import sys; print(f'{sys.version_info.major}.{sys.version_info.minor}')" 2>/dev/null) || continue

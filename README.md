@@ -99,7 +99,7 @@ For manual work: `muninn/sources/` for connectors, `wiki.yaml` for configuration
 ## Requirements
 
 - Python 3.11+
-- [Ollama](https://ollama.com) with any model (default: `gemma4:e4b`)
+- [Ollama](https://ollama.com) with any model (default: `gemma4:e4b`), or [LM Studio](https://lmstudio.ai) with `llm_provider: lmstudio`
 - macOS or Linux (Docker supported)
 - [Obsidian](https://obsidian.md) with [Copilot](https://github.com/logancyang/obsidian-copilot) plugin for viewing and chat
 

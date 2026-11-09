@@ -4,7 +4,10 @@ Embeds page summaries once on ingest, re-embeds only on change. Queries hit
 pre-computed vectors — 1 embedding call per query regardless of vault size.
 
 Storage: <vault>/.muninn/chroma/ (persistent, survives restarts)
-Model: mxbai-embed-large via Ollama (same model Copilot uses)
+Model: `embed_model` (default qwen3-embedding:8b, 4096-dim) served by Ollama or
+LM Studio via their OpenAI-compatible /v1/embeddings. Changing the model or
+embedding provider requires wiping the chroma dir and running
+`muninn vectorstore-sync`.
 
 Designed for infinite scale — ChromaDB handles 100K+ documents on local disk.
 """
@@ -14,7 +17,10 @@ from __future__ import annotations
 import hashlib
 import logging
 from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING, Any
+
+if TYPE_CHECKING:
+    from .config import Settings
 
 log = logging.getLogger(__name__)
 
@@ -28,27 +34,29 @@ except ImportError:
 
 
 class VectorStore:
-    """Persistent local vector store backed by ChromaDB + Ollama embeddings."""
+    """Persistent local vector store backed by ChromaDB + local embeddings (Ollama or LM Studio)."""
 
     COLLECTION_NAME = "wiki_pages"
 
     def __init__(
         self,
         persist_dir: Path,
-        ollama_host: str = "http://localhost:11434",
-        embed_model: str = "mxbai-embed-large",
+        embed_host: str = "http://localhost:11434",
+        embed_model: str = "qwen3-embedding:8b",
+        embed_provider: str = "ollama",
     ) -> None:
         if not _HAS_CHROMA:
             raise ImportError("chromadb is not installed. Run: pip install chromadb")
         self.persist_dir = persist_dir
-        self.ollama_host = ollama_host
+        self.embed_host = embed_host
         self.embed_model = embed_model
+        self.embed_provider = embed_provider
 
         self._client = chromadb.PersistentClient(
             path=str(persist_dir),
             settings=ChromaSettings(anonymized_telemetry=False),
         )
-        self._embed_fn = _OllamaEmbedFn(ollama_host, embed_model)
+        self._embed_fn = _EmbedFn(embed_host, embed_model, embed_provider)
         self._collection = self._client.get_or_create_collection(
             name=self.COLLECTION_NAME,
             embedding_function=self._embed_fn,
@@ -58,6 +66,16 @@ class VectorStore:
             "VectorStore: %d documents in %s",
             self._collection.count(),
             persist_dir,
+        )
+
+    @classmethod
+    def from_settings(cls, settings: Settings) -> VectorStore:
+        """Build the vault's store using the configured embedding provider/host/model."""
+        return cls(
+            persist_dir=settings.state_dir / "chroma",
+            embed_host=settings.embed_host,
+            embed_model=settings.embed_model,
+            embed_provider=settings.embed_provider_resolved,
         )
 
     @property
@@ -223,13 +241,16 @@ class EmbedMetrics:
         return f"{self.texts_per_sec:.0f} texts/s ({self.total_texts} texts in {self.total_calls} calls, {self.total_ms / 1000:.1f}s)"
 
 
-class _OllamaEmbedFn:
-    """ChromaDB-compatible embedding function using Ollama's API."""
+class _EmbedFn:
+    """ChromaDB-compatible embedding function over an OpenAI-compatible /v1/embeddings
+    endpoint (Ollama and LM Studio both expose one)."""
 
-    def __init__(self, host: str, model: str) -> None:
-        self.host = host.rstrip("/")
+    def __init__(self, host: str, model: str, provider: str = "ollama") -> None:
+        host = host.rstrip("/")
+        self.host = host[: -len("/v1")] if host.endswith("/v1") else host
         self.model = model
-        self._name = f"ollama-{model}"
+        # Name is persisted by Chroma; keep "ollama-<model>" so existing stores still open.
+        self._name = f"{provider}-{model}"
         self.metrics = EmbedMetrics()
         import httpx
 
