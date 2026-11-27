@@ -56,6 +56,24 @@ settings:
   # Better quality but 2x slower. Enable for deeper extraction.
   two_pass_ingest: false
 
+  # Ingest throughput. Generation (output tokens) dominates ingest time on
+  # local models; prompt processing is a small fraction.
+  # Thinking mode (Qwen3.5 and other hybrid reasoning models think by default):
+  # true / false / null (= model default). The thinking text is discarded during
+  # ingest, so it only adds generation time.
+  ingest_thinking: false
+  # query_thinking: null
+  # Concurrent LLM extractions. Raises total throughput only on a server that
+  # batches concurrent requests: LM Studio (load with `lms load <model> --parallel 4`),
+  # oMLX, vLLM-mlx. Ollama's MLX engine runs requests one at a time, so keep 1 there.
+  ingest_concurrency: 1
+  # ollama_keep_alive: 1h                 # keep the model loaded between calls (Ollama default 5m)
+  # LM Studio only: unload and reload the ingest model every N items (0 = never).
+  # Long batched runs on LM Studio's MLX engine can crash with "[metal::malloc]
+  # Resource limit (499000) exceeded" or a GPU out-of-memory; a planned reload
+  # (pipeline drains in-flight requests first) resets the engine before that.
+  # lmstudio_reload_every: 50
+
   # Memory model
   consolidation_enabled: true            # enable nightly LLM consolidation
   decay_rate: 0.95                       # weekly strength multiplier (halves in ~14 weeks)

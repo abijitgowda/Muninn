@@ -44,6 +44,7 @@ class VectorStore:
         embed_host: str = "http://localhost:11434",
         embed_model: str = "qwen3-embedding:8b",
         embed_provider: str = "ollama",
+        keep_alive: str | int | None = None,
     ) -> None:
         if not _HAS_CHROMA:
             raise ImportError("chromadb is not installed. Run: pip install chromadb")
@@ -56,7 +57,7 @@ class VectorStore:
             path=str(persist_dir),
             settings=ChromaSettings(anonymized_telemetry=False),
         )
-        self._embed_fn = _EmbedFn(embed_host, embed_model, embed_provider)
+        self._embed_fn = _EmbedFn(embed_host, embed_model, embed_provider, keep_alive=keep_alive)
         self._collection = self._client.get_or_create_collection(
             name=self.COLLECTION_NAME,
             embedding_function=self._embed_fn,
@@ -76,6 +77,7 @@ class VectorStore:
             embed_host=settings.embed_host,
             embed_model=settings.embed_model,
             embed_provider=settings.embed_provider_resolved,
+            keep_alive=settings.ollama_keep_alive,
         )
 
     @property
@@ -242,13 +244,22 @@ class EmbedMetrics:
 
 
 class _EmbedFn:
-    """ChromaDB-compatible embedding function over an OpenAI-compatible /v1/embeddings
-    endpoint (Ollama and LM Studio both expose one)."""
+    """ChromaDB-compatible embedding function. LM Studio: OpenAI-compatible
+    /v1/embeddings. Ollama: native /api/embed, which also takes keep_alive so the
+    model stays loaded between queries (Ollama unloads after 5 idle minutes)."""
 
-    def __init__(self, host: str, model: str, provider: str = "ollama") -> None:
+    def __init__(
+        self,
+        host: str,
+        model: str,
+        provider: str = "ollama",
+        keep_alive: str | int | None = None,
+    ) -> None:
         host = host.rstrip("/")
         self.host = host[: -len("/v1")] if host.endswith("/v1") else host
         self.model = model
+        self.provider = provider
+        self.keep_alive = keep_alive
         # Name is persisted by Chroma; keep "ollama-<model>" so existing stores still open.
         self._name = f"{provider}-{model}"
         self.metrics = EmbedMetrics()
@@ -273,16 +284,24 @@ class _EmbedFn:
         for i in range(0, len(input), batch_size):
             batch = input[i : i + batch_size]
             t0 = time.monotonic()
-            r = self._client.post(
-                f"{self.host}/v1/embeddings",
-                json={"model": self.model, "input": batch},
-            )
-            r.raise_for_status()
+            embs = self._embed_ollama(batch) if self.provider == "ollama" else self._embed_openai(batch)
             elapsed_ms = (time.monotonic() - t0) * 1000
             self.metrics.total_texts += len(batch)
             self.metrics.total_calls += 1
             self.metrics.total_ms += elapsed_ms
-            data = r.json().get("data") or []
-            sorted_embs = [d["embedding"] for d in sorted(data, key=lambda d: d["index"])]
-            all_embeddings.extend(sorted_embs)
+            all_embeddings.extend(embs)
         return all_embeddings
+
+    def _embed_ollama(self, batch: list[str]) -> list[list[float]]:
+        payload: dict[str, Any] = {"model": self.model, "input": batch}
+        if self.keep_alive is not None:
+            payload["keep_alive"] = self.keep_alive
+        r = self._client.post(f"{self.host}/api/embed", json=payload)
+        r.raise_for_status()
+        return r.json().get("embeddings") or []
+
+    def _embed_openai(self, batch: list[str]) -> list[list[float]]:
+        r = self._client.post(f"{self.host}/v1/embeddings", json={"model": self.model, "input": batch})
+        r.raise_for_status()
+        data = r.json().get("data") or []
+        return [d["embedding"] for d in sorted(data, key=lambda d: d["index"])]

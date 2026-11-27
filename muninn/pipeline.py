@@ -21,6 +21,7 @@ from rich.console import Console
 
 from .config import Config, SourceConfig
 from .llm import LLMError, LLMMetrics
+from .llm.base import LLMProvider
 from .manifest import Manifest
 from .prompts import ANALYSIS_JSON_INSTRUCTION, EXTRACTION_JSON_INSTRUCTION, PromptLoader
 from .provenance import aggregate_confidence, compute_provenance, extract_inline_provenance
@@ -35,6 +36,30 @@ class IngestResult:
     pages_touched: list[str]
     status: str  # processed | failed | skipped
     error: str | None = None
+
+
+def _progress_summary(done: int, out_tokens: int, elapsed_s: float, total: int) -> str:
+    """' · total 80 tok/s, 190 items/h, ~4h50m left' — aggregate rate across concurrent requests."""
+    if done < 2 or elapsed_s <= 0:  # the first completions arrive together; rates aren't meaningful yet
+        return ""
+    per_hour = done / elapsed_s * 3600
+    left_s = (total - done) / per_hour * 3600
+    hours, minutes = divmod(int(left_s // 60), 60)
+    left = f"{hours}h{minutes:02d}m" if hours else f"{minutes}m"
+    return f" · total {out_tokens / elapsed_s:.0f} tok/s, {per_hour:.0f} items/h, ~{left} left"
+
+
+@dataclass
+class _IngestJob:
+    """Everything the LLM stage needs for one raw item, built on the main thread."""
+
+    src_cfg: SourceConfig
+    item_id: str
+    raw_path: Path
+    raw_page: Page
+    body_text: str
+    schema_hint: str
+    existing_titles: str
 
 
 def instantiate_source(src_cfg: SourceConfig) -> Source:
@@ -351,27 +376,95 @@ class Pipeline:
             self.console.print("  [yellow]dry-run: skipping LLM step[/yellow]")
             return []
 
-        # Step 3: process pending items (this includes prior failures too)
-        results: list[IngestResult] = []
+        # Step 3: process pending items (this includes prior failures too).
+        # Screen first so excluded/garbage items never reach the LLM and the
+        # progress counter reflects real LLM work.
         pending = list(self.manifest.pending(src_cfg.name))
+        if pending:
+            self.console.print(f"  screening {len(pending)} pending items...")
+        skip_counts: dict[str, int] = {}
+        to_process = []
+        for item in pending:
+            reason = self._screen(src_cfg, source, item.path, item.item_id)
+            if reason:
+                skip_counts[reason] = skip_counts.get(reason, 0) + 1
+            else:
+                to_process.append(item)
+        if skip_counts:
+            self.console.print(
+                "  skipped: " + ", ".join(f"{n} {reason}" for reason, n in sorted(skip_counts.items()))
+            )
         if limit:
-            pending = pending[:limit]
-        total_pending = len(pending)
-        if total_pending:
-            self.console.print(f"  processing {total_pending} pending items through LLM...")
+            to_process = to_process[:limit]
+        return self._process_pending(src_cfg, to_process)
+
+    # ---- per-item stages: screen → build job → extract (LLM) → apply (writes) ----
+
+    def _screen(self, src_cfg: SourceConfig, source: Source | None, raw_rel_path: str, item_id: str) -> str:
+        """Return a skip reason (and record it in the manifest), or "" if the item needs the LLM."""
+        try:
+            raw_page = self.vault.read_page(self.vault.root / raw_rel_path)
+        except Exception as e:  # noqa: BLE001 — missing/corrupt raw file
+            self.manifest.mark_failed(src_cfg.name, item_id, f"unreadable raw file: {e}")
+            return "unreadable"
+        if source is not None and source.is_excluded(raw_page.frontmatter):
+            self.manifest.update_item(src_cfg.name, item_id, status="skipped", error="excluded by config")
+            return "excluded by config"
+        if _is_garbage_body(raw_page.body, raw_page.frontmatter, source_type=src_cfg.type):
+            self.manifest.update_item(src_cfg.name, item_id, status="skipped", error="garbage body detected")
+            return "garbage"
+        return ""
+
+    def _process_pending(self, src_cfg: SourceConfig, items: list) -> list[IngestResult]:
+        """Run LLM extraction for screened items and write their pages.
+
+        With ingest_concurrency > 1, extractions run on a thread pool (one LLM
+        client per thread) while all vault/manifest writes stay on this thread.
+        """
+        import time as _time
+
+        results: list[IngestResult] = []
+        total = len(items)
+        if not total:
+            return results
+        concurrency = max(1, self.config.settings.ingest_concurrency)
+        self.console.print(
+            f"  processing {total} items through LLM"
+            + (f" ({concurrency} concurrent)" if concurrency > 1 else "")
+            + "..."
+        )
+
+        def on_start(idx: int, item) -> None:  # sequential mode keeps the live "calling LLM" line
+            self.console.print(f"  [{idx}/{total}] {Path(item.path).stem[:50]} — calling LLM...", end="")
+
+        t_start = _time.monotonic()
+        out_tokens = 0
         consecutive_failures = 0
-        for idx, item in enumerate(pending, 1):
-            raw_title = Path(item.path).stem[:50]
-            self.console.print(f"  [{idx}/{total_pending}] {raw_title} — calling LLM...", end="")
-            try:
-                touched = self.ingest_one(src_cfg, item.path, item.item_id)
-                # Check if item was skipped (garbage body)
-                item_state = self.manifest.get_item(src_cfg.name, item.item_id)
-                if item_state and item_state.status == "skipped":
-                    results.append(IngestResult(item.item_id, Path(item.path), [], "skipped"))
-                    self.console.print(" ⊘ skipped (garbage body)")
+        stream = self._extractions(src_cfg, items, concurrency, on_start if concurrency == 1 else None)
+        try:
+            for idx, (item, job, extraction, m, error) in enumerate(stream, 1):
+                prefix = "" if concurrency == 1 else f"  [{idx}/{total}] {Path(item.path).stem[:50]} —"
+                touched: list[str] = []
+                if error is None:
+                    try:
+                        touched = self._apply(job, extraction)
+                    except Exception as e:  # noqa: BLE001
+                        error = e
+                if error is not None:
+                    err = f"{type(error).__name__}: {error}"
+                    self.manifest.mark_failed(src_cfg.name, item.item_id, err)
+                    results.append(IngestResult(item.item_id, Path(item.path), [], "failed", err))
+                    self.console.print(f"{prefix} ✗ {err}")
+                    consecutive_failures += 1
+                    if consecutive_failures >= 3:
+                        self.console.print(
+                            f"  [red]stopping: {consecutive_failures} consecutive failures — "
+                            f"{self.llm.host or 'LLM'} may be down[/red]"
+                        )
+                        break
                     continue
-                m = self.llm.last_metrics
+                consecutive_failures = 0
+                out_tokens += m.completion_tokens
                 self.manifest.mark_processed(
                     src_cfg.name,
                     item.item_id,
@@ -380,64 +473,173 @@ class Pipeline:
                     total_duration_ms=m.total_duration_ms,
                 )
                 results.append(IngestResult(item.item_id, Path(item.path), touched, "processed"))
-                perf = f" ({m.eval_rate:.0f} tok/s, {m.total_duration_ms / 1000:.1f}s)" if m.eval_rate else ""
-                self.console.print(f" ✓ {len(touched)} pages{perf}")
-                consecutive_failures = 0
-            except Exception as e:  # noqa: BLE001
-                err = f"{type(e).__name__}: {e}"
-                self.manifest.mark_failed(src_cfg.name, item.item_id, err)
-                results.append(IngestResult(item.item_id, Path(item.path), [], "failed", err))
-                self.console.print(f" ✗ {err}")
-                consecutive_failures += 1
-                if consecutive_failures >= 3:
-                    self.console.print(
-                        f"  [red]stopping: {consecutive_failures} consecutive failures — {self.llm.host or 'LLM'} may be down[/red]"
+                if concurrency == 1:
+                    perf = (
+                        f" ({m.eval_rate:.0f} tok/s, {m.total_duration_ms / 1000:.1f}s)"
+                        if m.eval_rate
+                        else ""
                     )
-                    break
+                else:
+                    # Per-request speed drops when requests share the GPU; what matters is the total.
+                    perf = f" ({m.total_duration_ms / 1000:.0f}s, {m.eval_rate:.0f} tok/s per request)"
+                    perf += _progress_summary(len(results), out_tokens, _time.monotonic() - t_start, total)
+                self.console.print(f"{prefix} ✓ {len(touched)} pages{perf}")
+        finally:
+            stream.close()
 
+        elapsed = _time.monotonic() - t_start
+        n_ok = sum(1 for r in results if r.status == "processed")
+        if n_ok and elapsed > 0:
+            self.console.print(
+                f"  throughput: {n_ok} items in {elapsed / 60:.1f} min — "
+                f"{n_ok / elapsed * 3600:.0f} items/hour, {out_tokens / elapsed:.0f} output tok/s aggregate"
+            )
         return results
 
-    def ingest_one(self, src_cfg: SourceConfig, raw_rel_path: str, item_id: str) -> list[str]:
-        raw_path = self.vault.root / raw_rel_path
-        raw_page = self.vault.read_page(raw_path)
+    def _reload_interval(self) -> int:
+        """Extractions between planned model reloads; 0 when off or unsupported."""
+        every = self.config.settings.lmstudio_reload_every
+        return every if every > 0 and hasattr(self.llm, "reload_model") else 0
 
-        # ---- Pre-filter: skip garbage bodies ----
+    def _reload_llm(self) -> None:
+        """Reload the ingest model. Only called with no requests in flight."""
+        self.console.print(f"  reloading {self.llm.model} (every {self._reload_interval()} items)...", end="")
+        try:
+            secs = self.llm.reload_model(context_length=self.config.settings.num_ctx_ingest)
+            self.console.print(f" done in {secs:.0f}s")
+        except Exception as e:  # noqa: BLE001 — a failed reload must not stop the run
+            self.console.print(f" [yellow]failed: {e}[/yellow]")
+
+    def _extractions(self, src_cfg: SourceConfig, items: list, concurrency: int, on_start=None):
+        """Yield (item, job, extraction, metrics, error) — in completion order when concurrent.
+
+        With `lmstudio_reload_every`, every N items the queue is drained (no new
+        submissions until in-flight requests finish), the model is reloaded, and
+        work resumes.
+        """
+        reload_every = self._reload_interval()
+        if concurrency <= 1:
+            for idx, item in enumerate(items, 1):
+                if reload_every and idx > 1 and (idx - 1) % reload_every == 0:
+                    self._reload_llm()
+                if on_start:
+                    on_start(idx, item)
+                try:
+                    job = self._build_job(src_cfg, item.path, item.item_id)
+                    extraction, metrics = self._extract(job, self.llm)
+                    yield item, job, extraction, metrics, None
+                except Exception as e:  # noqa: BLE001
+                    yield item, None, None, None, e
+            return
+
+        import threading
+        from concurrent.futures import FIRST_COMPLETED, Future, ThreadPoolExecutor, wait
+
+        local = threading.local()
+
+        def run(job: _IngestJob):
+            llm = getattr(local, "llm", None)
+            if llm is None:  # one client per worker: metrics and connections aren't shared
+                llm = local.llm = self.config.settings.create_llm("ingest")
+            return self._extract(job, llm)
+
+        pool = ThreadPoolExecutor(max_workers=concurrency, thread_name_prefix="muninn-ingest")
+        inflight: dict[Future, tuple] = {}
+        queue = list(reversed(items))  # pop() from the end = original order
+        submitted_since_reload = 0
+
+        def submit_next() -> None:
+            nonlocal submitted_since_reload
+            if not queue or (reload_every and submitted_since_reload >= reload_every):
+                return  # nothing left, or draining before a reload
+            item = queue.pop()
+            submitted_since_reload += 1
+            try:
+                job = self._build_job(src_cfg, item.path, item.item_id)  # main thread: reads vault state
+                fut = pool.submit(run, job)
+            except Exception as e:  # noqa: BLE001
+                job, fut = None, Future()
+                fut.set_exception(e)
+            inflight[fut] = (item, job)
+
+        try:
+            for _ in range(concurrency):
+                submit_next()
+            while inflight:
+                done, _ = wait(inflight, return_when=FIRST_COMPLETED)
+                for fut in done:
+                    item, job = inflight.pop(fut)
+                    submit_next()  # keep the server's batch full while we write pages
+                    try:
+                        extraction, metrics = fut.result()
+                        yield item, job, extraction, metrics, None
+                    except Exception as e:  # noqa: BLE001
+                        yield item, job, None, None, e
+                if not inflight and queue and reload_every:  # drained for a planned reload
+                    self._reload_llm()
+                    submitted_since_reload = 0
+                    for _ in range(concurrency):
+                        submit_next()
+        finally:
+            # On early stop, drop queued work; in-flight items stay pending in the manifest.
+            pool.shutdown(wait=False, cancel_futures=True)
+
+    def ingest_one(self, src_cfg: SourceConfig, raw_rel_path: str, item_id: str) -> list[str]:
+        raw_page = self.vault.read_page(self.vault.root / raw_rel_path)
         if _is_garbage_body(raw_page.body, raw_page.frontmatter, source_type=src_cfg.type):
             self.manifest.update_item(src_cfg.name, item_id, status="skipped", error="garbage body detected")
             return []
+        job = self._build_job(src_cfg, raw_rel_path, item_id)
+        extraction, metrics = self._extract(job, self.llm)
+        self.llm.last_metrics = metrics
+        return self._apply(job, extraction)
 
-        schema_hint = _schema_hint_for_source(src_cfg)
-        existing_titles = self._get_existing_titles()
+    def _build_job(self, src_cfg: SourceConfig, raw_rel_path: str, item_id: str) -> _IngestJob:
+        raw_path = self.vault.root / raw_rel_path
+        raw_page = self.vault.read_page(raw_path)
         body_text = raw_page.body.strip()[: self.config.settings.max_body_ingest]
-        raw_rel = str(raw_path.relative_to(self.vault.root))
+        return _IngestJob(
+            src_cfg=src_cfg,
+            item_id=item_id,
+            raw_path=raw_path,
+            raw_page=raw_page,
+            body_text=body_text,
+            schema_hint=_schema_hint_for_source(src_cfg),
+            # Only pages this source actually mentions — offering arbitrary titles
+            # leads the model to invent links to unrelated pages.
+            existing_titles=self._get_existing_titles(body_text),
+        )
 
+    def _extract(self, job: _IngestJob, llm: LLMProvider) -> tuple[dict, LLMMetrics]:
+        """LLM stage. Thread-safe: touches only `job` and the given client."""
         import time as _time
 
+        raw_rel = str(job.raw_path.relative_to(self.vault.root))
+        args = (raw_rel, job.raw_page.frontmatter, job.body_text, job.schema_hint, job.existing_titles)
         t0 = _time.monotonic()
-        pass_type = "two-pass" if self.config.settings.two_pass_ingest else "single-pass"
-        if self.config.settings.two_pass_ingest:
-            extraction = self._two_pass_extract(
-                raw_rel, raw_page.frontmatter, body_text, schema_hint, existing_titles
-            )
+        two_pass = self.config.settings.two_pass_ingest
+        if two_pass:
+            extraction, metrics = self._two_pass_extract(*args, llm=llm)
         else:
-            extraction = self._single_pass_extract(
-                raw_rel, raw_page.frontmatter, body_text, schema_hint, existing_titles
-            )
-        extract_ms = (_time.monotonic() - t0) * 1000
-        n_entities = len(extraction.get("entities", []))
-        n_concepts = len(extraction.get("concepts", []))
-        n_claims = len(extraction.get("claims", []))
+            extraction = self._single_pass_extract(*args, llm=llm)
+            metrics = llm.last_metrics
         log.info(
             "extract: %s %s — %s, %d entities, %d concepts, %d claims, body=%d chars, %.0fms",
-            src_cfg.name,
-            item_id[:12],
-            pass_type,
-            n_entities,
-            n_concepts,
-            n_claims,
-            len(body_text),
-            extract_ms,
+            job.src_cfg.name,
+            job.item_id[:12],
+            "two-pass" if two_pass else "single-pass",
+            len(extraction.get("entities", [])),
+            len(extraction.get("concepts", [])),
+            len(extraction.get("claims", [])),
+            len(job.body_text),
+            (_time.monotonic() - t0) * 1000,
         )
+        return extraction, metrics
+
+    def _apply(self, job: _IngestJob, extraction: dict) -> list[str]:
+        """Write stage: entity/concept/topic pages, relationships, source summary, index, log."""
+        src_cfg, item_id = job.src_cfg, job.item_id
+        raw_path, raw_page = job.raw_path, job.raw_page
 
         touched: list[str] = []
         pages_for_index: list[Page] = []
@@ -554,15 +756,23 @@ class Pipeline:
     # ---- helpers ----
 
     def _single_pass_extract(
-        self, raw_rel: str, frontmatter: dict, body: str, schema_hint: str, existing_titles: str
+        self,
+        raw_rel: str,
+        frontmatter: dict,
+        body: str,
+        schema_hint: str,
+        existing_titles: str,
+        *,
+        llm: LLMProvider | None = None,
     ) -> dict:
+        llm = llm or self.llm
         system = "You are a knowledge extraction agent. Output JSON only."
         user = (
             EXTRACTION_JSON_INSTRUCTION
             + "\n\n"
             + (f"SCHEMA CONTEXT: This source is about {schema_hint}.\n\n" if schema_hint else "")
             + (
-                f"EXISTING WIKI PAGES (reference these as [[wikilinks]] in your context fields):\n{existing_titles}\n\n"
+                f"EXISTING WIKI PAGES mentioned in this source (use [[wikilinks]] where the text is about them):\n{existing_titles}\n\n"
                 if existing_titles
                 else ""
             )
@@ -571,15 +781,24 @@ class Pipeline:
             + f"=== BODY ===\n{body}\n=== END BODY ==="
         )
         try:
-            return self.llm.chat_json(system, user, num_ctx=self.config.settings.num_ctx_ingest)
+            return llm.chat_json(system, user, num_ctx=self.config.settings.num_ctx_ingest)
         except LLMError as e:
             raise RuntimeError(f"LLM extraction failed: {e}") from e
 
     def _two_pass_extract(
-        self, raw_rel: str, frontmatter: dict, body: str, schema_hint: str, existing_titles: str
-    ) -> dict:
+        self,
+        raw_rel: str,
+        frontmatter: dict,
+        body: str,
+        schema_hint: str,
+        existing_titles: str,
+        *,
+        llm: LLMProvider | None = None,
+    ) -> tuple[dict, LLMMetrics]:
+        """Analysis pass then extraction pass. Returns (extraction, combined metrics)."""
         import json as _json
 
+        llm = llm or self.llm
         # ---- Pass 1: chain-of-thought analysis ----
         analysis_system = "You are a knowledge analysis agent. Think deeply about the source content."
         analysis_user = (
@@ -590,12 +809,12 @@ class Pipeline:
             + f"=== BODY ===\n{body}\n=== END BODY ==="
         )
         try:
-            analysis = self.llm.chat_json(
+            analysis = llm.chat_json(
                 analysis_system, analysis_user, num_ctx=self.config.settings.num_ctx_ingest
             )
         except LLMError as e:
             raise RuntimeError(f"LLM analysis (pass 1) failed: {e}") from e
-        metrics_p1 = self.llm.last_metrics
+        metrics_p1 = llm.last_metrics
 
         # ---- Pass 2: extraction using the analysis ----
         extract_system = "You are a knowledge extraction agent. Output JSON only."
@@ -605,28 +824,28 @@ class Pipeline:
             + "\n\n"
             + (f"SCHEMA CONTEXT: This source is about {schema_hint}.\n\n" if schema_hint else "")
             + (
-                f"EXISTING WIKI PAGES (reference as [[wikilinks]]):\n{existing_titles}\n\n"
+                f"EXISTING WIKI PAGES mentioned in this source (use [[wikilinks]] where the text is about them):\n{existing_titles}\n\n"
                 if existing_titles
                 else ""
             )
             + f"=== YOUR PRIOR ANALYSIS ===\n{analysis_block}\n=== END ANALYSIS ===\n\n"
             + f"Source: {raw_rel}\nFrontmatter: {frontmatter}\n\n"
-            + f"=== BODY ===\n{body}\n=== END BODY ===\n/no_think"
+            + f"=== BODY ===\n{body}\n=== END BODY ==="
         )
         try:
-            extraction = self.llm.chat_json(
+            extraction = llm.chat_json(
                 extract_system, extract_user, num_ctx=self.config.settings.num_ctx_ingest
             )
         except LLMError as e:
             raise RuntimeError(f"LLM extraction (pass 2) failed: {e}") from e
-        metrics_p2 = self.llm.last_metrics
+        metrics_p2 = llm.last_metrics
 
         # Merge claims from analysis if extraction didn't produce them
         if not extraction.get("claims") and analysis.get("claims"):
             extraction["claims"] = analysis["claims"]
 
         # Aggregate metrics from both passes
-        self.llm.last_metrics = LLMMetrics(
+        metrics = LLMMetrics(
             model=metrics_p2.model,
             prompt_tokens=metrics_p1.prompt_tokens + metrics_p2.prompt_tokens,
             completion_tokens=metrics_p1.completion_tokens + metrics_p2.completion_tokens,
@@ -637,7 +856,7 @@ class Pipeline:
                 / max((metrics_p1.total_duration_ms + metrics_p2.total_duration_ms) / 1000, 0.001)
             ),
         )
-        return extraction
+        return extraction, metrics
 
     def _upsert_page(
         self,
@@ -862,8 +1081,16 @@ class Pipeline:
 
         if body_hint:
             body_lower = body_hint.lower()
-            matched = [t for t in self._existing_titles_cache if t in body_lower and len(t) >= 3]
-            return ", ".join(matched[:200])
+            matched = []
+            for t in self._existing_titles_cache:
+                # cheap substring test first, then whole-word check ("api" ≠ "rapid")
+                if t in _STOP_WORDS:
+                    continue
+                if len(t) >= 3 and t in body_lower and re.search(rf"(?<!\w){re.escape(t)}(?!\w)", body_lower):
+                    matched.append(t)
+                    if len(matched) >= 200:
+                        break
+            return ", ".join(matched)
 
         return ", ".join(self._existing_titles_cache[:200])
 

@@ -101,6 +101,7 @@ def run_serve(
 ) -> None:
     console = console or Console()
     try:
+        import fastapi  # noqa: F401
         import uvicorn  # noqa: F401
     except ImportError as e:
         console.print(

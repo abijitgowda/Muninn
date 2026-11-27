@@ -283,6 +283,17 @@ class Manifest:
             total_items_with_metrics=int(metrics[2] or 0),
         )
 
+    def requeue_failed(self, source_name: str | None = None) -> int:
+        """Mark failed items pending so the next ingest retries them. Returns the count."""
+        sql = "UPDATE items SET status = 'pending', error = NULL WHERE status = 'failed'"
+        args: tuple = ()
+        if source_name:
+            sql += " AND source = ?"
+            args = (source_name,)
+        n = self._conn.execute(sql, args).rowcount
+        self._commit()
+        return n
+
     def reset_source(self, source_name: str) -> None:
         self._conn.execute("DELETE FROM items WHERE source = ?", (source_name,))
         self._conn.execute(

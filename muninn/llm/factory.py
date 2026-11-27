@@ -14,6 +14,8 @@ def create_provider(
     timeout: float = 300.0,
     api_key: str | None = None,
     base_url: str | None = None,
+    think: bool | None = None,
+    keep_alive: str | int | None = None,
 ) -> LLMProvider:
     """Create an LLM provider by name.
 
@@ -23,14 +25,17 @@ def create_provider(
         openai      — OpenAI API
         anthropic   — Anthropic Claude API
         openrouter  — OpenRouter (OpenAI-compatible)
-        custom      — any OpenAI-compatible endpoint (set base_url)
+        custom      — any OpenAI-compatible endpoint (set base_url), e.g. oMLX
+
+    `think` toggles thinking on hybrid reasoning models (None = model default).
+    `keep_alive` is Ollama-only: how long the model stays loaded after a call.
     """
     p = provider.lower()
 
     if p == "ollama":
         from .ollama_provider import OllamaProvider
 
-        return OllamaProvider(host=host, model=model, timeout=timeout)
+        return OllamaProvider(host=host, model=model, timeout=timeout, think=think, keep_alive=keep_alive)
 
     if p == "lmstudio":
         from .lmstudio_provider import LMStudioProvider
@@ -40,6 +45,7 @@ def create_provider(
             model=model,
             timeout=timeout,
             api_key=api_key or os.environ.get("LMSTUDIO_API_KEY"),
+            think=think,
         )
 
     if p == "openai":
@@ -59,6 +65,7 @@ def create_provider(
             model=model,
             api_key=api_key or os.environ.get("ANTHROPIC_API_KEY"),
             timeout=timeout,
+            think=think,
         )
 
     if p == "openrouter":
@@ -81,6 +88,8 @@ def create_provider(
             api_key=api_key or os.environ.get("LLM_API_KEY", ""),
             base_url=base_url,
             timeout=timeout,
+            think=think,
+            sends_template_kwargs=True,
         )
 
     raise LLMError(

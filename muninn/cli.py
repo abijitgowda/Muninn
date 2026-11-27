@@ -387,6 +387,19 @@ def sources_reset(
     console.print(f"[green]Reset cursor for {name!r}[/green]")
 
 
+@sources_app.command("retry-failed")
+def sources_retry_failed(
+    name: str = typer.Argument(None, help="Source name; omit for all sources."),
+) -> None:
+    """Requeue failed items so the next `muninn ingest` retries them."""
+    cfg = load_config()
+    from .manifest import Manifest
+
+    mf = Manifest(cfg.settings.manifest_path)
+    n = mf.requeue_failed(name)
+    console.print(f"[green]Requeued {n} failed item(s){f' in {name!r}' if name else ''}[/green]")
+
+
 def _toggle_source(name: str, enabled: bool) -> None:
     import yaml
 
