@@ -6,23 +6,41 @@ from collections.abc import Iterator
 from typing import Any
 
 from ..ollama import Ollama, OllamaError
-from .base import LLMError, LLMMetrics, LLMProvider
+from .base import PROVIDER_DEFAULT, LLMError, LLMMetrics, LLMProvider
 
 
 class OllamaProvider(LLMProvider):
     def __init__(
-        self, host: str = "http://localhost:11434", model: str = "gemma4:e4b", timeout: float = 300.0
+        self,
+        host: str = "http://localhost:11434",
+        model: str = "gemma4:e4b",
+        timeout: float = 300.0,
+        think: bool | None = None,
+        keep_alive: str | int | None = None,
     ):
         self.model = model
         self.host = host
         self.last_metrics = LLMMetrics()
-        self._client = Ollama(host=host, model=model, timeout=timeout)
+        self._client = Ollama(host=host, model=model, timeout=timeout, think=think, keep_alive=keep_alive)
+
+    @property
+    def think(self) -> bool | None:  # type: ignore[override]
+        return self._client.think
 
     def ping(self) -> bool:
         return self._client.ping()
 
     def chat(
-        self, system, user, *, json_mode=False, json_schema=None, temperature=0.2, num_ctx=32768, retries=2
+        self,
+        system,
+        user,
+        *,
+        json_mode=False,
+        json_schema=None,
+        temperature=0.2,
+        num_ctx=32768,
+        retries=2,
+        think=PROVIDER_DEFAULT,
     ) -> str:
         try:
             result = self._client.chat(
@@ -33,17 +51,30 @@ class OllamaProvider(LLMProvider):
                 temperature=temperature,
                 num_ctx=num_ctx,
                 retries=retries,
+                think=think,
             )
             self._sync_metrics()
             return result
         except OllamaError as e:
             raise LLMError(str(e)) from e
 
-    def chat_stream(self, system, user, *, temperature=0.2, num_ctx=32768) -> Iterator[str]:
-        yield from self._client.chat_stream(system, user, temperature=temperature, num_ctx=num_ctx)
+    def chat_stream(
+        self, system, user, *, temperature=0.2, num_ctx=32768, think=PROVIDER_DEFAULT
+    ) -> Iterator[str]:
+        yield from self._client.chat_stream(
+            system, user, temperature=temperature, num_ctx=num_ctx, think=think
+        )
 
     def chat_json(
-        self, system, user, *, json_schema=None, temperature=0.0, num_ctx=32768, retries=2
+        self,
+        system,
+        user,
+        *,
+        json_schema=None,
+        temperature=0.0,
+        num_ctx=32768,
+        retries=2,
+        think=PROVIDER_DEFAULT,
     ) -> dict[str, Any]:
         try:
             result = self._client.chat_json(
@@ -53,6 +84,7 @@ class OllamaProvider(LLMProvider):
                 temperature=temperature,
                 num_ctx=num_ctx,
                 retries=retries,
+                think=think,
             )
             self._sync_metrics()
             return result

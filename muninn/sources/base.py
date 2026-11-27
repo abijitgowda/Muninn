@@ -79,6 +79,20 @@ class Source(ABC):
     def source_type(self) -> str:
         """Type label used in frontmatter."""
 
+    def is_excluded(self, frontmatter: dict[str, Any]) -> bool:
+        """True if an already-fetched raw item is now excluded by this source's config.
+
+        `fetch` applies exclusions to new items; this lets the pipeline skip items
+        that were queued before an exclusion was added. Default: nothing excluded.
+        """
+        return False
+
+    @staticmethod
+    def host_excluded(url: str, domains: Iterable[str]) -> bool:
+        """True if url's host is one of `domains` or a subdomain of one."""
+        host = (urllib.parse.urlparse(url).hostname or "").lower()
+        return bool(host) and any(host == d or host.endswith("." + d) for d in domains)
+
     # ---- helpers for subclasses ----
 
     @staticmethod

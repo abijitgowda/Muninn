@@ -16,6 +16,7 @@ import urllib.parse
 from collections.abc import Iterable
 from datetime import datetime, timedelta
 from pathlib import Path
+from typing import Any
 
 import httpx
 import trafilatura
@@ -73,6 +74,10 @@ class BrowserHistorySource(Source):
     @property
     def source_type(self) -> str:
         return "browser-history"
+
+    def is_excluded(self, frontmatter: dict[str, Any]) -> bool:
+        domains = set(self.options.get("exclude_domains", [])) | self.DEFAULT_EXCLUDE_DOMAINS
+        return self.host_excluded(str(frontmatter.get("source_url") or ""), domains)
 
     def fetch(self, since: datetime | None) -> Iterable[RawItem]:
         db_path = self._resolve_db_path()

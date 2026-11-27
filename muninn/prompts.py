@@ -171,13 +171,13 @@ Return ONLY a JSON object with this exact shape:
   "summary": "<1-sentence summary>",
   "schema": "<category path: tech/ai, finance/equities, sports/cricket, personal/health, etc. 2-3 levels, lowercase, slash-separated.>",
   "entities": [
-    { "name": "<canonical name>", "kind": "person|org", "context": "<1-2 paragraphs: who they are, what they did in this source, why it matters. Use [[Page Name]] wikilinks to reference other entities/concepts. Include specific facts, titles, roles, numbers. Write 200-400 words.>" }
+    { "name": "<canonical name>", "kind": "person|org", "context": "<who they are, what they did in this source, why it matters. Include every specific fact, title, role and number the source gives. Use [[Page Name]] wikilinks for other entities/concepts the text is about. Length follows the source: up to 400 words when it covers them in depth, 2-4 sentences when it only mentions them.>" }
   ],
   "concepts": [
-    { "name": "<canonical name>", "context": "<1-2 paragraphs: what it is, how it works, why it matters. Use [[Page Name]] wikilinks to reference related concepts/entities. Include specific details, numbers, examples. Write 200-400 words.>" }
+    { "name": "<canonical name>", "context": "<what it is, how it works, why it matters, as this source explains it. Include every specific detail, number and example the source gives. Use [[Page Name]] wikilinks for related concepts/entities the text is about. Length follows the source: up to 400 words when it covers the idea in depth, 2-4 sentences when it only mentions it.>" }
   ],
   "topics": [
-    { "name": "<topic name>", "context": "<1-2 paragraphs: what this topic covers, key takeaways, connections to other ideas. Use [[Page Name]] wikilinks to reference related pages. Write 200-400 words.>" }
+    { "name": "<topic name>", "context": "<what this topic covers in this source, key takeaways, connections to other ideas the source draws. Use [[Page Name]] wikilinks for related pages the text is about. Up to 400 words, as much as the source supports.>" }
   ],
   "relationships": [
     { "source": "<name>", "target": "<name>", "type": "<supplies_to|competes_with|founded_by|works_at|part_of|uses>" }
@@ -197,6 +197,11 @@ Return ONLY a JSON object with this exact shape:
 }
 
 IMPORTANT: The "context" field for each entity/concept/topic is the MAIN CONTENT of its wiki page. Write substantive prose — not a one-line label. Include specific facts, numbers, quotes, and insights from the source. A good context reads like a mini-article.
+
+GROUNDING: This page becomes part of a knowledge graph, so every statement and every link is an assertion.
+- Capture everything the source says; never pad. Do not add background facts the source doesn't state — a thin source gets a short page.
+- Only add a [[wikilink]] when the text is actually about that page. Don't link a page just because it appears in the existing-pages list.
+- Don't create pages for boilerplate (subscription offers, navigation, cookie notices, publisher marketing).
 
 EXAMPLE of a good entity context (this is the quality bar):
 { "name": "Jensen Huang", "kind": "person", "context": "Jensen Huang is the co-founder and CEO of [[NVIDIA]], who has led the company's transformation from a graphics chip maker into the dominant force in AI infrastructure. At the 2026 GTC keynote, he announced the Blackwell Ultra architecture delivering 2.5x inference throughput over Hopper, with pricing starting at $30,000 per GPU. He emphasized that 'the age of AI infrastructure is here' and projected $1 trillion in data center spending over the next decade. His leadership style — hands-on technical involvement combined with aggressive supply chain partnerships with [[TSMC]] and [[Samsung]] — has been credited with NVIDIA's 800% stock appreciation since 2023. Critics note the company's growing monopoly in AI training hardware, with over 80% market share in enterprise GPU compute." }

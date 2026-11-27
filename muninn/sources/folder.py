@@ -55,6 +55,14 @@ class FolderSource(Source):
     def source_type(self) -> str:
         return "folder"
 
+    def is_excluded(self, frontmatter: dict[str, Any]) -> bool:
+        """Excluded if any folder on the item's relative path is in `exclude_paths`."""
+        excluded = {p.lower() for p in self.options.get("exclude_paths") or []}
+        if not excluded:
+            return False
+        rel_folder = str(frontmatter.get("relative_folder") or "")
+        return any(part.lower() in excluded for part in Path(rel_folder).parts)
+
     # ------------------------------------------------------------------
     # fetch
     # ------------------------------------------------------------------

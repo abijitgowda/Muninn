@@ -771,7 +771,8 @@ def _llm_rerank(
     )
     user = f"QUESTION: {question}\n\nCANDIDATES:\n{numbered}"
     try:
-        result = llm.chat_json(system, user, temperature=0.0, num_ctx=4096)
+        # Ranking is a lookup, not reasoning — skip thinking even when queries think.
+        result = llm.chat_json(system, user, temperature=0.0, num_ctx=4096, think=False)
         if isinstance(result, list):
             indices = result
         elif isinstance(result, dict):

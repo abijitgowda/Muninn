@@ -10,7 +10,7 @@ from typing import Any
 
 import httpx
 
-from .base import LLMError, LLMMetrics, LLMProvider
+from .base import PROVIDER_DEFAULT, LLMError, LLMMetrics, LLMProvider, parse_json_object
 
 
 class AnthropicProvider(LLMProvider):
@@ -19,6 +19,7 @@ class AnthropicProvider(LLMProvider):
         model: str = "claude-sonnet-4-6",
         api_key: str | None = None,
         timeout: float = 300.0,
+        think: bool | None = None,  # accepted for interface parity; not sent
     ):
         self.model = model
         self.last_metrics = LLMMetrics()
@@ -37,7 +38,16 @@ class AnthropicProvider(LLMProvider):
         return bool(self._api_key)
 
     def chat(
-        self, system, user, *, json_mode=False, json_schema=None, temperature=0.2, num_ctx=32768, retries=2
+        self,
+        system,
+        user,
+        *,
+        json_mode=False,
+        json_schema=None,
+        temperature=0.2,
+        num_ctx=32768,
+        retries=2,
+        think=PROVIDER_DEFAULT,  # accepted for interface parity; not sent
     ) -> str:
         payload: dict[str, Any] = {
             "model": self.model,
@@ -76,7 +86,9 @@ class AnthropicProvider(LLMProvider):
                 raise LLMError(f"Anthropic request failed: {e}") from e
         raise LLMError(f"Anthropic request failed after retries: {last_err}")
 
-    def chat_stream(self, system, user, *, temperature=0.2, num_ctx=32768) -> Iterator[str]:
+    def chat_stream(
+        self, system, user, *, temperature=0.2, num_ctx=32768, think=PROVIDER_DEFAULT
+    ) -> Iterator[str]:
         payload = {
             "model": self.model,
             "max_tokens": min(num_ctx, 8192),
@@ -103,17 +115,20 @@ class AnthropicProvider(LLMProvider):
                     continue
 
     def chat_json(
-        self, system, user, *, json_schema=None, temperature=0.0, num_ctx=32768, retries=2
+        self,
+        system,
+        user,
+        *,
+        json_schema=None,
+        temperature=0.0,
+        num_ctx=32768,
+        retries=2,
+        think=PROVIDER_DEFAULT,
     ) -> dict[str, Any]:
         json_system = system + "\n\nRespond with valid JSON only. No prose, no markdown fences."
         raw = self.chat(json_system, user, temperature=temperature, num_ctx=num_ctx, retries=retries)
-        cleaned = raw.strip()
-        if cleaned.startswith("```"):
-            cleaned = cleaned.strip("`")
-            if cleaned.startswith("json\n"):
-                cleaned = cleaned[5:]
         try:
-            return json.loads(cleaned)
+            return parse_json_object(raw)
         except json.JSONDecodeError as e:
             raise LLMError(f"Invalid JSON from Anthropic: {e}\n---\n{raw[:500]}") from e
 

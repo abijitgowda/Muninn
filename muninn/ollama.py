@@ -12,7 +12,7 @@ from typing import Any
 
 import httpx
 
-from .llm.base import LLMError, LLMMetrics
+from .llm.base import PROVIDER_DEFAULT, LLMError, LLMMetrics, parse_json_object
 
 
 class OllamaError(LLMError):
@@ -25,10 +25,17 @@ class Ollama:
         host: str = "http://localhost:11434",
         model: str = "qwen2.5:14b",
         timeout: float = 300.0,
+        think: bool | None = None,
+        keep_alive: str | int | None = None,
     ) -> None:
         self.host = host.rstrip("/")
         self.model = model
         self.timeout = timeout
+        # None = model default. Qwen3.5 and similar think by default; the
+        # thinking text is discarded here, so it is pure generation cost.
+        self.think = think
+        self.keep_alive = keep_alive
+        self._think_unsupported = False  # set when the model rejects the think flag
         self._client = httpx.Client(timeout=timeout, base_url=self.host)
         self.last_metrics = LLMMetrics()
 
@@ -60,6 +67,7 @@ class Ollama:
         temperature: float = 0.2,
         num_ctx: int = 32768,
         retries: int = 2,
+        think: Any = PROVIDER_DEFAULT,
     ) -> str:
         payload: dict[str, Any] = {
             "model": self.model,
@@ -77,11 +85,17 @@ class Ollama:
             payload["format"] = json_schema
         elif json_mode:
             payload["format"] = "json"
+        self._apply_request_options(payload, think)
 
         last_err: Exception | None = None
         for attempt in range(retries + 1):
             try:
                 r = self._client.post("/api/chat", json=payload)
+                if r.is_client_error and "think" in payload and _is_think_unsupported(r):
+                    # Model has no thinking mode — drop the flag for this and later calls.
+                    self._think_unsupported = True
+                    payload.pop("think")
+                    r = self._client.post("/api/chat", json=payload)
                 if r.is_client_error:  # bad model name, bad request — retrying won't help
                     raise OllamaError(f"Ollama {r.status_code}: {_error_detail(r)}")
                 r.raise_for_status()
@@ -103,6 +117,7 @@ class Ollama:
         *,
         temperature: float = 0.2,
         num_ctx: int = 32768,
+        think: Any = PROVIDER_DEFAULT,
     ) -> Iterator[str]:
         """Yield content chunks as they arrive from Ollama's NDJSON stream."""
         payload = {
@@ -114,6 +129,7 @@ class Ollama:
             "stream": True,
             "options": {"temperature": temperature, "num_ctx": num_ctx},
         }
+        self._apply_request_options(payload, think)
         try:
             with self._client.stream("POST", "/api/chat", json=payload) as r:
                 if r.is_error:
@@ -122,6 +138,13 @@ class Ollama:
                 yield from self._iter_stream(r)
         except httpx.HTTPError as e:
             raise OllamaError(f"Ollama stream failed: {e}") from e
+
+    def _apply_request_options(self, payload: dict[str, Any], think: Any = PROVIDER_DEFAULT) -> None:
+        think = self.think if think is PROVIDER_DEFAULT else think
+        if think is not None and not self._think_unsupported:
+            payload["think"] = think
+        if self.keep_alive is not None:
+            payload["keep_alive"] = self.keep_alive
 
     @staticmethod
     def _iter_stream(r: httpx.Response) -> Iterator[str]:
@@ -176,27 +199,31 @@ class Ollama:
         temperature: float = 0.0,
         num_ctx: int = 32768,
         retries: int = 2,
+        think: Any = PROVIDER_DEFAULT,
     ) -> dict[str, Any]:
-        """Convenience: chat with format=json, parse result."""
-        raw = self.chat(
-            system,
-            user,
-            json_mode=json_schema is None,
-            json_schema=json_schema,
-            temperature=temperature,
-            num_ctx=num_ctx,
-            retries=retries,
-        )
-        # Strip ```json fences if a model adds them anyway
-        cleaned = raw.strip()
-        if cleaned.startswith("```"):
-            cleaned = cleaned.strip("`")
-            if cleaned.startswith("json\n"):
-                cleaned = cleaned[5:]
-        try:
-            return json.loads(cleaned)
-        except json.JSONDecodeError as e:
-            raise OllamaError(f"Ollama returned invalid JSON: {e}\n---\n{raw[:1000]}") from e
+        """Convenience: chat with format=json, parse result.
+
+        If the reply isn't valid JSON, regenerate once at a slightly higher
+        temperature — greedy decoding would just reproduce the same output.
+        """
+        raw = ""
+        last_err: Exception | None = None
+        for attempt in range(2):
+            raw = self.chat(
+                system,
+                user,
+                json_mode=json_schema is None,
+                json_schema=json_schema,
+                temperature=temperature if attempt == 0 else max(temperature, 0.3),
+                num_ctx=num_ctx,
+                retries=retries,
+                think=think,
+            )
+            try:
+                return parse_json_object(raw)
+            except json.JSONDecodeError as e:
+                last_err = e
+        raise OllamaError(f"Ollama returned invalid JSON: {last_err}\n---\n{raw[:1000]}")
 
 
 def _error_detail(r: httpx.Response) -> str:
@@ -205,3 +232,9 @@ def _error_detail(r: httpx.Response) -> str:
         return r.json().get("error") or r.text
     except (ValueError, AttributeError):
         return r.text or r.reason_phrase
+
+
+def _is_think_unsupported(r: httpx.Response) -> bool:
+    """True when Ollama rejected the request because the model can't think."""
+    detail = str(_error_detail(r)).lower()
+    return "think" in detail and ("support" in detail or "not" in detail)

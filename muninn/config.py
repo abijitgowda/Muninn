@@ -100,6 +100,19 @@ class Settings(BaseModel):
     retrieval_mode: str = "adaptive"  # "hybrid" | "reranked" | "adaptive"
     max_retrieval_pages: int = 5  # max page bodies sent to LLM per query
     two_pass_ingest: bool = True  # chain-of-thought: analysis pass then extraction pass
+    # Thinking mode for hybrid reasoning models (Qwen3.5, etc.): None = model default.
+    # Off for ingest: extraction doesn't benefit, and the thinking text is discarded.
+    ingest_thinking: bool | None = False
+    query_thinking: bool | None = None
+    # Parallel ingest: number of LLM extractions in flight. Only helps with a server
+    # that batches concurrent requests (LM Studio with --parallel, oMLX, vLLM-mlx);
+    # Ollama's MLX engine runs requests one at a time.
+    ingest_concurrency: int = 1
+    # Ollama keep_alive: a duration string ("1h") or seconds (-1 = forever); None = server default (5m)
+    ollama_keep_alive: str | int | None = None
+    # LM Studio only: reload the ingest model every N extractions (0 = never). Resets
+    # LM Studio's MLX engine before long batched runs crash it.
+    lmstudio_reload_every: int = 0
     # Memory model
     consolidation_enabled: bool = True
     decay_rate: float = 0.95  # per-week strength multiplier (halves in ~14 weeks)
@@ -167,14 +180,18 @@ class Settings(BaseModel):
 
         if operation == "ingest":
             provider, model = self.provider_for_ingest, self.model_for_ingest
+            think = self.ingest_thinking
         else:
             provider, model = self.provider_for_query, self.model_for_query
+            think = self.query_thinking
         return create_provider(
             provider=provider,
             model=model,
             host=self.host_for(provider),
             timeout=self.llm_timeout,
             base_url=self.llm_base_url,
+            think=think,
+            keep_alive=self.ollama_keep_alive,
         )
 
     @property
@@ -206,6 +223,14 @@ class Config(BaseModel):
 
     def enabled(self) -> list[SourceConfig]:
         return [s for s in self.sources if s.enabled]
+
+
+def _keep_alive(value: Any) -> str | int | None:
+    """Ollama reads numbers as seconds and strings as Go durations ("1h"), so "-1" must stay numeric."""
+    if value is None or isinstance(value, int):
+        return value
+    text = str(value).strip()
+    return int(text) if text.lstrip("-").isdigit() else text
 
 
 def load_config(
@@ -255,6 +280,11 @@ def load_config(
         retrieval_mode=raw_settings.get("retrieval_mode", "keyword"),
         max_retrieval_pages=int(raw_settings.get("max_retrieval_pages", 5)),
         two_pass_ingest=raw_settings.get("two_pass_ingest", True),
+        ingest_thinking=raw_settings.get("ingest_thinking", False),
+        query_thinking=raw_settings.get("query_thinking"),
+        ingest_concurrency=max(1, int(raw_settings.get("ingest_concurrency", 1))),
+        ollama_keep_alive=_keep_alive(raw_settings.get("ollama_keep_alive")),
+        lmstudio_reload_every=max(0, int(raw_settings.get("lmstudio_reload_every") or 0)),
         consolidation_enabled=raw_settings.get("consolidation_enabled", True),
         decay_rate=float(raw_settings.get("decay_rate", 0.95)),
         abstraction_threshold=int(raw_settings.get("abstraction_threshold", 5)),
